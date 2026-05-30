@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as Tone from "tone";
 
+// ─── Viewport fix for mobile keyboard ───
+(function setMobileViewport() {
+  let meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) { meta = document.createElement("meta"); meta.name = "viewport"; document.head.appendChild(meta); }
+  meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+})();
+
+
+
 // ─── Google Font ───
 const fontLink = document.createElement("link");
 fontLink.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
@@ -410,7 +419,187 @@ function drawForensicsOfficer(ctx, x, y) {
 function drawZPrompt(ctx, x, y) {
   ctx.fillStyle="#000"; ctx.fillRect(x+4,y-18,24,16);
   ctx.fillStyle="#e8d070"; ctx.strokeStyle="#e8d070"; ctx.strokeRect(x+4,y-18,24,16);
-  ctx.font="8px "+FONT; ctx.textAlign="center"; ctx.fillText("Z",x+16,y-6); ctx.textAlign="left";
+  ctx.font="8px "+FONT; ctx.textAlign="center"; ctx.fillText("A",x+16,y-6); ctx.textAlign="left";
+}
+
+// ═══════════════════════════════════════
+// TOUCH CONTROLS OVERLAY (Mobile)
+// ═══════════════════════════════════════
+function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hidden }) {
+  const [pressed, setPressed] = useState({});
+  if (hidden) return null;
+
+  const handleDPad = (key, isDown, e) => {
+    if (e) e.preventDefault();
+    if (isDown) startMusicForLevel();
+    keysRef.current[key] = isDown;
+    setPressed(p => ({ ...p, [key]: isDown }));
+  };
+
+  const dispatchKey = (key, type) => {
+    window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }));
+  };
+
+  const dpadBtn = (key, label, isPressed) => ({
+    width: 52, height: 52,
+    background: isPressed ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.55)",
+    border: "2px solid rgba(255,255,255,0.25)",
+    borderRadius: 10,
+    color: "#fff", fontSize: 22,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
+    cursor: "pointer", padding: 0, margin: 0,
+  });
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0,
+      height: 170,
+      display: "flex", justifyContent: "space-between", alignItems: "flex-end",
+      padding: "0 16px 16px",
+      background: "linear-gradient(transparent, rgba(0,0,0,0.75))",
+      touchAction: "none", zIndex: 40,
+      pointerEvents: "none",
+    }}>
+      {/* D-pad */}
+      <div style={{ display: "grid", gridTemplateColumns: "52px 52px 52px", gridTemplateRows: "52px 52px 52px", gap: 3, pointerEvents: "auto" }}>
+        <div/>
+        <button style={dpadBtn("ArrowUp", "▲", pressed.ArrowUp)}
+          onTouchStart={(e) => { e.preventDefault(); handleDPad("ArrowUp", true, e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleDPad("ArrowUp", false, e); }}
+          onTouchCancel={(e) => { handleDPad("ArrowUp", false, e); }}>▲</button>
+        <div/>
+        <button style={dpadBtn("ArrowLeft", "◄", pressed.ArrowLeft)}
+          onTouchStart={(e) => { e.preventDefault(); handleDPad("ArrowLeft", true, e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleDPad("ArrowLeft", false, e); }}
+          onTouchCancel={(e) => { handleDPad("ArrowLeft", false, e); }}>◄</button>
+        <div/>
+        <button style={dpadBtn("ArrowRight", "►", pressed.ArrowRight)}
+          onTouchStart={(e) => { e.preventDefault(); handleDPad("ArrowRight", true, e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleDPad("ArrowRight", false, e); }}
+          onTouchCancel={(e) => { handleDPad("ArrowRight", false, e); }}>►</button>
+        <div/>
+        <button style={dpadBtn("ArrowDown", "▼", pressed.ArrowDown)}
+          onTouchStart={(e) => { e.preventDefault(); handleDPad("ArrowDown", true, e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleDPad("ArrowDown", false, e); }}
+          onTouchCancel={(e) => { handleDPad("ArrowDown", false, e); }}>▼</button>
+        <div/>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", pointerEvents: "auto", paddingBottom: 4 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {showCBtn && (
+            <button style={{
+              width: 46, height: 46,
+              background: "rgba(90,80,60,0.7)", border: "2px solid #e8d070", borderRadius: 10,
+              color: "#e8d070", fontSize: 12, fontFamily: FONT,
+              touchAction: "none", userSelect: "none", cursor: "pointer",
+            }}
+              onTouchStart={(e) => { e.preventDefault(); dispatchKey("c", "keydown"); }}>C</button>
+          )}
+          {showCloseBtn && (
+            <button style={{
+              width: 46, height: 46,
+              background: "rgba(120,40,40,0.8)", border: "2px solid #ff6644", borderRadius: 10,
+              color: "#ff6644", fontSize: 14, fontFamily: FONT,
+              touchAction: "none", userSelect: "none", cursor: "pointer",
+            }}
+              onTouchStart={(e) => { e.preventDefault(); dispatchKey("Escape", "keydown"); }}>✕</button>
+          )}
+        </div>
+        <button style={{
+          width: 68, height: 68,
+          background: pressed.z ? "rgba(232,208,112,0.95)" : "rgba(232,208,112,0.6)",
+          border: "3px solid #e8d070", borderRadius: 34,
+          color: "#1a1420", fontSize: 22, fontFamily: FONT,
+          fontWeight: "bold", touchAction: "none", userSelect: "none",
+          boxShadow: "0 0 18px rgba(232,208,112,0.4)", cursor: "pointer",
+        }}
+          onTouchStart={(e) => { e.preventDefault(); setPressed(p => ({ ...p, z: true })); startMusicForLevel(); dispatchKey("z", "keydown"); }}
+          onTouchEnd={(e) => { e.preventDefault(); setPressed(p => ({ ...p, z: false })); dispatchKey("z", "keyup"); }}
+          onTouchCancel={(e) => { setPressed(p => ({ ...p, z: false })); dispatchKey("z", "keyup"); }}>A</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// CUSTOM IN-GAME KEYBOARD (replaces native mobile keyboard)
+// ═══════════════════════════════════════
+function CustomKeyboard({ onKey, onBackspace, onSend, visible }) {
+  const [shifted, setShifted] = useState(false);
+  const [pressedKey, setPressedKey] = useState(null);
+
+  if (!visible) return null;
+
+  const rows = [
+    ['Q','W','E','R','T','Y','U','I','O','P'],
+    ['A','S','D','F','G','H','J','K','L'],
+    ['SHIFT','Z','X','C','V','B','N','M','BKSP'],
+  ];
+
+  const handleKey = (key, e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (key === 'SHIFT') { setShifted(s => !s); return; }
+    if (key === 'BKSP') { onBackspace(); return; }
+    if (key === 'SPACE') { onKey(' '); return; }
+    if (key === 'SEND') { onSend(); return; }
+    onKey(shifted ? key : key.toLowerCase());
+    if (shifted) setShifted(false);
+  };
+
+  const keyStyle = (key) => {
+    const isPressed = pressedKey === key;
+    const isShiftActive = key === 'SHIFT' && shifted;
+    const isSend = key === 'SEND';
+    const isSpace = key === 'SPACE';
+    const isWide = key === 'SHIFT' || key === 'BKSP';
+    return {
+      height: 42,
+      minWidth: isSpace ? undefined : isWide ? 48 : isSend ? 64 : 28,
+      flex: isSpace ? 1 : undefined,
+      background: isPressed ? '#4a3870' : isSend ? '#e8d070' : isShiftActive ? '#3a3060' : '#2a2040',
+      border: isShiftActive ? '2px solid #e8d070' : '1px solid #3a3060',
+      borderRadius: 5,
+      color: isSend ? '#1a1420' : '#e8d070',
+      fontFamily: FONT,
+      fontSize: isWide ? 16 : isSend ? 14 : isSpace ? 8 : 11,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
+      cursor: 'pointer', padding: '0 2px', margin: 0, outline: 'none',
+    };
+  };
+
+  const label = (key) => {
+    if (key === 'SHIFT') return '⇧';
+    if (key === 'BKSP') return '⌫';
+    if (key === 'SPACE') return 'SPACE';
+    if (key === 'SEND') return 'SEND ▶';
+    return shifted ? key : key.toLowerCase();
+  };
+
+  const renderKey = (key) => (
+    <button key={key} style={keyStyle(key)}
+      onTouchStart={(e) => { e.preventDefault(); setPressedKey(key); handleKey(key, e); }}
+      onTouchEnd={(e) => { e.preventDefault(); setPressedKey(null); }}
+      onTouchCancel={() => setPressedKey(null)}
+    >{label(key)}</button>
+  );
+
+  return (
+    <div style={{position:'fixed',bottom:0,left:0,right:0,background:'#1a1420',borderTop:'2px solid #3a3060',padding:'8px 4px 12px',zIndex:60,touchAction:'none'}}>
+      {rows.map((row, ri) => (
+        <div key={ri} style={{display:'flex',justifyContent:'center',gap:3,marginBottom:4}}>
+          {row.map(key => renderKey(key))}
+        </div>
+      ))}
+      <div style={{display:'flex',justifyContent:'center',gap:3}}>
+        {renderKey('SPACE')}
+        {renderKey('SEND')}
+      </div>
+    </div>
+  );
 }
 
 // ═══════════════════════════════════════
@@ -612,7 +801,6 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
     return()=>{window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);};
   },[messagesL.length,messagesR.length,safeDoor,gLx,gLy,gRx,gRy,startMusicForLevel]);
 
-  useEffect(()=>{if(chatOpen&&inputRef.current)inputRef.current.focus();},[chatOpen]);
   useEffect(()=>{const h=e=>{if(e.key==="Escape"&&chatOpenRef.current){e.preventDefault();setChatOpen(false);}};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[]);
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[messagesL,messagesR]);
 
@@ -723,7 +911,7 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
           Ask them questions. Use logic. Choose wisely — your life depends on it.
         </div>
       </div>
-      <button onClick={()=>setGamePhase("play")} style={{fontFamily:FONT,fontSize:10,padding:"12px 28px",background:"#e8d070",color:"#0e0c14",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px rgba(232,208,112,0.4)",marginTop:20}}>ENTER THE DUNGEON</button>
+      <button onClick={()=>setGamePhase("play")} style={{fontFamily:FONT,fontSize:10,padding:"14px 28px",background:"#e8d070",color:"#0e0c14",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px rgba(232,208,112,0.4)",marginTop:20,minHeight:48}}>ENTER THE DUNGEON</button>
     </div>
   );
 
@@ -734,43 +922,43 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
       <div style={{fontSize:28,color:"#ff4444",textShadow:"0 0 30px #ff4444, 0 0 60px #aa0000",marginBottom:20,animation:"shake 0.3s infinite"}}>☠ DEATH ☠</div>
       <div style={{fontSize:9,color:"#e88080",lineHeight:"22px",maxWidth:400,marginBottom:10}}>The door creaks open to reveal the hangman's noose. You chose... poorly.</div>
       <div style={{fontSize:40,margin:"10px 0"}}>💀⛓️🪦</div>
-      <button onClick={onRestart} style={{fontFamily:FONT,fontSize:10,padding:"12px 28px",background:"#ff4444",color:"#1a0a0a",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #ff4444",marginTop:20}}>TRY AGAIN</button>
+      <button onClick={onRestart} style={{fontFamily:FONT,fontSize:10,padding:"14px 28px",background:"#ff4444",color:"#1a0a0a",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #ff4444",marginTop:20,minHeight:48}}>TRY AGAIN</button>
       <style>{`@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}`}</style>
     </div>
   );
 
   const msgs=talkingTo==="left"?messagesL:messagesR;
   return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",fontFamily:FONT,background:"#0e0c14",minHeight:"100vh",padding:"12px 8px",boxSizing:"border-box"}} onClick={startMusicForLevel}>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",fontFamily:FONT,background:"#0e0c14",minHeight:"100vh",padding:"12px 8px 190px",boxSizing:"border-box",touchAction:"none",position:"relative"}} onClick={startMusicForLevel}>
       {muteBtn}
       <div style={{color:"#e8d070",fontSize:10,marginBottom:8,textShadow:"2px 2px 0 #3a2a0a",letterSpacing:3}}>THE TWO GUARDS</div>
       <div style={{color:"#8a7a6a",fontSize:6,marginBottom:10,textAlign:"center",lineHeight:"12px"}}>One always lies. One always tells the truth. Choose a door.</div>
-      <div style={{background:"#18142a",border:"3px solid #3a3060",borderRadius:6,padding:6,boxShadow:"0 0 30px rgba(60,40,120,0.4)"}}>
-        <canvas ref={canvasRef} width={L1_W} height={L1_H} style={{display:"block",imageRendering:"pixelated",width:L1_W,height:L1_H,borderRadius:3}} />
+      <div style={{background:"#18142a",border:"3px solid #3a3060",borderRadius:6,padding:6,boxShadow:"0 0 30px rgba(60,40,120,0.4)",width:"100%",maxWidth:L1_W+12,boxSizing:"border-box"}}>
+        <canvas ref={canvasRef} width={L1_W} height={L1_H} style={{display:"block",imageRendering:"pixelated",width:"100%",borderRadius:3}} />
       </div>
       <div style={{color:"#6a6a8a",fontSize:7,marginTop:6,textAlign:"center"}}>
-        {chatOpen?"":nearEntity==="guardL"||nearEntity==="guardR"?"PRESS Z TO TALK":nearEntity==="doorL"||nearEntity==="doorR"?"PRESS Z TO ENTER":"ARROW KEYS TO MOVE · Z TO INTERACT"}
+        {chatOpen?"":nearEntity==="guardL"||nearEntity==="guardR"?"TAP A TO TALK":nearEntity==="doorL"||nearEntity==="doorR"?"TAP A TO ENTER":"D-PAD TO MOVE · A TO INTERACT"}
       </div>
-      {chatOpen&&(
-        <div style={{width:L1_W+12,maxWidth:"100%",background:"#0c0a16",border:"3px solid "+(talkingTo==="left"?"#b04040":"#4060b0"),borderRadius:6,marginTop:6,padding:10,boxSizing:"border-box"}}>
+      {chatOpen&&(<div style={{width:"100%",maxWidth:500,background:"#0c0a16",border:"3px solid "+(talkingTo==="left"?"#b04040":"#4060b0"),borderRadius:6,marginTop:6,padding:10,boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
-            <canvas ref={portraitCanvasRef} width={96} height={96} style={{imageRendering:"pixelated",width:96,height:96,borderRadius:4,border:"2px solid "+(talkingTo==="left"?"#b04040":"#4060b0"),boxShadow:"0 0 12px "+(talkingTo==="left"?"rgba(176,64,64,0.4)":"rgba(64,96,176,0.4)")}} />
+            <canvas ref={portraitCanvasRef} width={96} height={96} style={{imageRendering:"pixelated",width:64,height:64,borderRadius:4,border:"2px solid "+(talkingTo==="left"?"#b04040":"#4060b0"),boxShadow:"0 0 12px "+(talkingTo==="left"?"rgba(176,64,64,0.4)":"rgba(64,96,176,0.4)")}} />
           </div>
           <div style={{color:talkingTo==="left"?"#b04040":"#4060b0",fontSize:8,marginBottom:8,textAlign:"center"}}>─── {talkingTo==="left"?"GUARD 1":"GUARD 2"} ───</div>
-          <div style={{maxHeight:140,overflowY:"auto",marginBottom:8}}>
+          <div style={{maxHeight:120,overflowY:"auto",marginBottom:8,WebkitOverflowScrolling:"touch"}}>
             {msgs.map((m,i)=><div key={i} style={{color:m.role==="assistant"?"#e8d070":"#5b8dd9",fontSize:8,lineHeight:"16px",marginBottom:6,wordBreak:"break-word"}}><span style={{color:m.role==="assistant"?(talkingTo==="left"?"#b04040":"#4060b0"):"#70e870"}}>{m.role==="assistant"?(talkingTo==="left"?"GUARD 1":"GUARD 2"):"ANDREW"}:</span> {m.text}</div>)}
             {loading&&<div style={{color:"#6a6a8a",fontSize:8}}>The guard ponders...</div>}
             <div ref={chatEndRef}/>
           </div>
           <div style={{display:"flex",gap:6}}>
-            <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();walkAwayRef.current?.focus();}}} placeholder="Ask the guard..." style={{flex:1,background:"#141020",border:"2px solid #3a3060",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:8,padding:"6px 8px",outline:"none"}} />
-            <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:8,padding:"6px 10px",cursor:"pointer",color:"#0e0c14"}}>▶</button>
+            <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();}} placeholder="Ask the guard..." style={{flex:1,background:"#141020",border:"2px solid #3a3060",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:10,padding:"10px 10px",outline:"none",minHeight:44}} />
+            <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:10,padding:"10px 14px",cursor:"pointer",color:"#0e0c14",minHeight:44}}>▶</button>
           </div>
           {sayingBye?null:
-            <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3060",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
+            <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3060",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:8,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
           }
         </div>
       )}
+      <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={false} showCloseBtn={false} hidden={chatOpen} />
     </div>
   );
 }
@@ -1515,7 +1703,6 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
     return()=>{window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);};
   },[startMusicForLevel]);
 
-  useEffect(()=>{if(chatOpen&&inputRef.current)inputRef.current.focus();},[chatOpen]);
   useEffect(()=>{const h=e=>{if(e.key==="Escape"){if(examiningRef.current){e.preventDefault();setExamining(null);return;}if(chatOpenRef.current){e.preventDefault();setChatOpen(false);}}};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[]);
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
@@ -1852,7 +2039,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
       <div style={{fontSize:9,color:"#aaa890",lineHeight:"20px",maxWidth:400,marginBottom:20}}>Detective Andrew cracks another case.</div>
       <div style={{fontSize:40,margin:"10px 0"}}>🕵️🎨👮</div>
       <div style={{display:"flex",gap:12,marginTop:20}}>
-        <button onClick={onRestart} style={{fontFamily:FONT,fontSize:10,padding:"12px 28px",background:"#e8d070",color:"#1a1a2e",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #e8d070"}}>PLAY AGAIN</button>
+        <button onClick={onRestart} style={{fontFamily:FONT,fontSize:10,padding:"14px 28px",background:"#e8d070",color:"#1a1a2e",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #e8d070",minHeight:48}}>PLAY AGAIN</button>
       </div>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}`}</style>
     </div>
@@ -1864,7 +2051,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
       <div style={{fontSize:22,color:"#ff6644",textShadow:"0 0 20px #ff6644",marginBottom:20}}>WRONG ACCUSATION</div>
       <div style={{fontSize:9,color:"#e8a080",lineHeight:"22px",maxWidth:400,marginBottom:20}}>The suspect walks free. The real culprit escapes. Review the evidence and try again.</div>
       <div style={{fontSize:40,margin:"10px 0"}}>🤦‍♂️📋</div>
-      <button onClick={()=>{setResult(null);setMessages(prev=>({...prev,cop:[{role:"assistant",text:"Back for another try, detective? WHO did it, with WHAT, and WHERE?"}]}));}} style={{fontFamily:FONT,fontSize:10,padding:"12px 28px",background:"#ff6644",color:"#1a0a0a",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #ff6644",marginTop:10}}>INVESTIGATE MORE</button>
+      <button onClick={()=>{setResult(null);setMessages(prev=>({...prev,cop:[{role:"assistant",text:"Back for another try, detective? WHO did it, with WHAT, and WHERE?"}]}));}} style={{fontFamily:FONT,fontSize:10,padding:"14px 28px",background:"#ff6644",color:"#1a0a0a",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #ff6644",marginTop:10,minHeight:48}}>INVESTIGATE MORE</button>
     </div>
   );
 
@@ -1874,16 +2061,16 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
   const roomLabel=room==="hall"?"ENTRY HALL":room==="bathroom"?"BATHROOM":"GIFT SHOP";
 
   return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",fontFamily:FONT,background:"#1a1820",minHeight:"100vh",padding:"12px 8px",boxSizing:"border-box"}} onClick={startMusicForLevel}>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",fontFamily:FONT,background:"#1a1820",minHeight:"100vh",padding:"12px 8px 190px",boxSizing:"border-box",touchAction:"none",position:"relative"}} onClick={startMusicForLevel}>
       {muteBtn}
       <div style={{color:"#e8d070",fontSize:10,marginBottom:4,textShadow:"2px 2px 0 #3a2a0a",letterSpacing:3}}>MURDER AT THE ASHWORTH GALLERY</div>
       <div style={{color:"#8a8a7a",fontSize:6,marginBottom:4,textAlign:"center",lineHeight:"12px"}}>Talk to suspects. Gather clues. Make your accusation to the detective.</div>
       <div style={{color:"#aaa088",fontSize:7,marginBottom:8,textAlign:"center"}}>📍 {roomLabel}</div>
-      <div style={{background:"#28242a",border:"3px solid #5a5040",borderRadius:6,padding:6,boxShadow:"0 0 20px rgba(120,100,60,0.3)"}}>
-        <canvas ref={canvasRef} width={L2_W} height={L2_H} style={{display:"block",imageRendering:"pixelated",width:L2_W,height:L2_H,borderRadius:3}} />
+      <div style={{background:"#28242a",border:"3px solid #5a5040",borderRadius:6,padding:6,boxShadow:"0 0 20px rgba(120,100,60,0.3)",width:"100%",maxWidth:L2_W+12,boxSizing:"border-box"}}>
+        <canvas ref={canvasRef} width={L2_W} height={L2_H} style={{display:"block",imageRendering:"pixelated",width:"100%",borderRadius:3}} />
       </div>
       <div style={{color:"#8a8a7a",fontSize:7,marginTop:6,textAlign:"center"}}>
-        {chatOpen||examining?"":nearEntity?"PRESS Z TO TALK":nearExaminable?"PRESS Z TO EXAMINE":"ARROWS TO MOVE · Z INTERACT · C CLUES"}
+        {chatOpen||examining?"":nearEntity?"TAP A TO TALK":nearExaminable?"TAP A TO EXAMINE":"D-PAD MOVE · A INTERACT · C CLUES"}
       </div>
 
       {/* Clue panel */}
@@ -1897,42 +2084,42 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
               <div key={i} style={{color:"#c8b880",fontSize:7,lineHeight:"16px",marginBottom:4}}>• {clue}</div>
             ))
           )}
-          <div style={{color:"#6a6a5a",fontSize:6,marginTop:6,textAlign:"center"}}>PRESS C TO TOGGLE</div>
+          <div style={{color:"#6a6a5a",fontSize:6,marginTop:6,textAlign:"center"}}>TAP C TO TOGGLE</div>
         </div>
       )}
 
       {/* Chat with portrait */}
       {chatOpen&&ti&&(
-        <div style={{width:L2_W+12,maxWidth:"100%",background:"#1a1420",border:"3px solid "+ti.color,borderRadius:6,marginTop:6,padding:10,boxSizing:"border-box"}}>
+        <div style={{width:"100%",maxWidth:500,background:"#1a1420",border:"3px solid "+ti.color,borderRadius:6,marginTop:6,padding:10,boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
-            <canvas ref={portraitRef} width={96} height={96} style={{imageRendering:"pixelated",border:"3px solid "+ti.color,borderRadius:4,boxShadow:"0 0 10px "+ti.color+"66"}} />
+            <canvas ref={portraitRef} width={96} height={96} style={{imageRendering:"pixelated",width:64,height:64,border:"3px solid "+ti.color,borderRadius:4,boxShadow:"0 0 10px "+ti.color+"66"}} />
           </div>
           <div style={{color:ti.color,fontSize:8,marginBottom:8,textAlign:"center"}}>─── {ti.name} ───</div>
-          <div style={{maxHeight:140,overflowY:"auto",marginBottom:8}}>
+          <div style={{maxHeight:120,overflowY:"auto",marginBottom:8,WebkitOverflowScrolling:"touch"}}>
             {curMsgs.map((m,i)=><div key={i} style={{color:m.role==="assistant"?"#e8d070":"#5b8dd9",fontSize:8,lineHeight:"16px",marginBottom:6,wordBreak:"break-word"}}><span style={{color:m.role==="assistant"?ti.color:"#70e870"}}>{m.role==="assistant"?ti.name:"ANDREW"}:</span> {m.text}</div>)}
             {loading&&<div style={{color:"#8a8a7a",fontSize:8}}>Thinking...</div>}
             <div ref={chatEndRef}/>
           </div>
           <div style={{display:"flex",gap:6}}>
-            <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();walkAwayRef.current?.focus();}}} placeholder="Ask a question..." style={{flex:1,background:"#0e0c14",border:"2px solid #3a3040",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:8,padding:"6px 8px",outline:"none"}} />
-            <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:8,padding:"6px 10px",cursor:"pointer",color:"#1a1420"}}>▶</button>
+            <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();}} placeholder="Ask a question..." style={{flex:1,background:"#0e0c14",border:"2px solid #3a3040",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:10,padding:"10px 10px",outline:"none",minHeight:44}} />
+            <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:10,padding:"10px 14px",cursor:"pointer",color:"#1a1420",minHeight:44}}>▶</button>
           </div>
           {talkingTo==="cop"&&!accusation&&!sayingBye&&(
-            <button onClick={()=>setAccusation({step:"who",who:null,what:null,where:null})} style={{marginTop:6,background:"#cc3030",border:"2px solid #ff4444",borderRadius:4,color:"#fff",fontFamily:FONT,fontSize:8,padding:"6px 8px",cursor:"pointer",width:"100%",boxShadow:"0 0 10px rgba(204,48,48,0.3)"}}>⚖ MAKE ACCUSATION</button>
+            <button onClick={()=>setAccusation({step:"who",who:null,what:null,where:null})} style={{marginTop:6,background:"#cc3030",border:"2px solid #ff4444",borderRadius:4,color:"#fff",fontFamily:FONT,fontSize:8,padding:"10px 8px",cursor:"pointer",width:"100%",boxShadow:"0 0 10px rgba(204,48,48,0.3)",minHeight:44}}>⚖ MAKE ACCUSATION</button>
           )}
           {accusation&&(
             <div style={{marginTop:6,background:"#1a0a0a",border:"2px solid #cc3030",borderRadius:4,padding:8}}>
               {accusation.step==="who"&&(<>
                 <div style={{color:"#ff6644",fontSize:8,marginBottom:6,textAlign:"center"}}>WHO committed the murder?</div>
                 {["VP Mauve","Viscount Eminence","Duchess of Vermillion"].map(s=>(
-                  <button key={s} onClick={()=>setAccusation(a=>({...a,step:"what",who:s}))} style={{display:"block",width:"100%",marginBottom:4,padding:"5px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left"}}>{s}</button>
+                  <button key={s} onClick={()=>setAccusation(a=>({...a,step:"what",who:s}))} style={{display:"block",width:"100%",marginBottom:4,padding:"10px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left",minHeight:44}}>{s}</button>
                 ))}
               </>)}
               {accusation.step==="what"&&(<>
                 <div style={{color:"#ff6644",fontSize:8,marginBottom:4,textAlign:"center"}}>WHO: {accusation.who}</div>
                 <div style={{color:"#ff6644",fontSize:8,marginBottom:6,textAlign:"center"}}>WHAT was the murder weapon?</div>
                 {["Porcelain Vase","Heavy Painting Frame","Abstract Statue"].map(s=>(
-                  <button key={s} onClick={()=>setAccusation(a=>({...a,step:"where",what:s}))} style={{display:"block",width:"100%",marginBottom:4,padding:"5px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left"}}>{s}</button>
+                  <button key={s} onClick={()=>setAccusation(a=>({...a,step:"where",what:s}))} style={{display:"block",width:"100%",marginBottom:4,padding:"10px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left",minHeight:44}}>{s}</button>
                 ))}
                 <button onClick={()=>setAccusation(null)} style={{marginTop:4,background:"transparent",border:"1px solid #666",borderRadius:3,color:"#666",fontFamily:FONT,fontSize:6,padding:"3px 6px",cursor:"pointer",width:"100%"}}>CANCEL</button>
               </>)}
@@ -1947,28 +2134,29 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
                     setAccusation(null);
                     if(correct)setTimeout(()=>setResult("win"),1500);
                     else setTimeout(()=>setResult("wrong"),1500);
-                  }} style={{display:"block",width:"100%",marginBottom:4,padding:"5px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left"}}>{s}</button>
+                  }} style={{display:"block",width:"100%",marginBottom:4,padding:"10px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left",minHeight:44}}>{s}</button>
                 ))}
                 <button onClick={()=>setAccusation(null)} style={{marginTop:4,background:"transparent",border:"1px solid #666",borderRadius:3,color:"#666",fontFamily:FONT,fontSize:6,padding:"3px 6px",cursor:"pointer",width:"100%"}}>CANCEL</button>
               </>)}
             </div>
           )}
           {sayingBye?null:
-            <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3040",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
+            <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3040",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:8,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
           }
         </div>
       )}
 
       {examining&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50}} onClick={()=>setExamining(null)}>
-          <div style={{background:"#1a1420",border:"3px solid #e8d070",borderRadius:8,padding:16,textAlign:"center",maxWidth:340}} onClick={e=>e.stopPropagation()}>
-            <canvas ref={examCanvasRef} width={128} height={128} style={{imageRendering:"pixelated",border:"2px solid #5a4a30",borderRadius:4,display:"block",margin:"0 auto 8px"}} />
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:20}} onClick={()=>setExamining(null)}>
+          <div style={{background:"#1a1420",border:"3px solid #e8d070",borderRadius:8,padding:16,textAlign:"center",maxWidth:340,width:"90%"}} onClick={e=>e.stopPropagation()}>
+            <canvas ref={examCanvasRef} width={128} height={128} style={{imageRendering:"pixelated",border:"2px solid #5a4a30",borderRadius:4,display:"block",margin:"0 auto 8px",width:100,height:100}} />
             <div style={{color:"#e8d070",fontSize:9,marginBottom:6,fontFamily:FONT}}>{examining.label}</div>
             <div style={{color:"#c8b880",fontSize:7,lineHeight:"14px",marginBottom:10,fontFamily:FONT,maxWidth:300,margin:"0 auto 10px"}}>{examining.description}</div>
-            <button onClick={()=>setExamining(null)} style={{fontFamily:FONT,fontSize:8,padding:"6px 16px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer"}}>CLOSE (ESC)</button>
+            <button onClick={()=>setExamining(null)} style={{fontFamily:FONT,fontSize:9,padding:"12px 20px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer",minHeight:44}}>CLOSE</button>
           </div>
         </div>
       )}
+      <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={true} showCloseBtn={false} hidden={chatOpen||!!examining||!!result} />
     </div>
   );
 }
@@ -2011,7 +2199,7 @@ async function callLLM({ model, system, messages, maxTokens, apiKey }) {
   }
 }
 
-export default function Game() {
+export default function GameMobile() {
   const [level, setLevel] = useState(1);
   const [muted, setMuted] = useState(false);
   const [gameKey, setGameKey] = useState(0);
@@ -2048,6 +2236,23 @@ export default function Game() {
   const selectedProvider = (MODEL_OPTIONS.find(m => m.id === model) || MODEL_OPTIONS[0]).provider;
 
   useEffect(() => { setMusicGain(muted); }, [muted]);
+
+  // Prevent touch default behaviors (scrolling/zooming) on game area
+  useEffect(() => {
+    const prevent = (e) => {
+      if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+        e.preventDefault();
+      }
+    };
+    document.body.style.touchAction = "none";
+    document.body.style.overscrollBehavior = "none";
+    document.addEventListener("touchmove", prevent, { passive: false });
+    return () => {
+      document.removeEventListener("touchmove", prevent);
+      document.body.style.touchAction = "";
+      document.body.style.overscrollBehavior = "";
+    };
+  }, []);
 
   const startMusicForLevel = useCallback(() => {
     initMusic(level, muted);
@@ -2137,8 +2342,8 @@ export default function Game() {
         )}
         {keyError && <div style={{color:"#ff6b6b",fontSize:8,marginBottom:10}}>{keyError}</div>}
         <button onClick={handleStart} style={{
-          padding:"10px 24px",fontSize:10,fontFamily:FONT,cursor:"pointer",
-          background:"#3a3060",border:"2px solid #e8d070",borderRadius:6,color:"#e8d070",
+          padding:"14px 24px",fontSize:10,fontFamily:FONT,cursor:"pointer",
+          background:"#3a3060",border:"2px solid #e8d070",borderRadius:6,color:"#e8d070",minHeight:48,
         }}>Start Game</button>
         <div style={{fontSize:7,marginTop:20,color:"#666",maxWidth:350,lineHeight:"1.8"}}>
           {selectedProvider === "anthropic" ? "Your key is stored in localStorage only. Get one at console.anthropic.com" : ""}
@@ -2152,8 +2357,8 @@ export default function Game() {
       position: "fixed", top: 10, right: 10, zIndex: 100,
       background: "rgba(20,16,32,0.85)", border: "2px solid #3a3060", borderRadius: 6,
       color: muted ? "#666" : "#e8d070",
-      fontFamily: FONT, fontSize: 9, padding: "6px 10px", cursor: "pointer",
-      boxShadow: "0 0 10px rgba(60,40,120,0.3)",
+      fontFamily: FONT, fontSize: 9, padding: "10px 14px", cursor: "pointer",
+      boxShadow: "0 0 10px rgba(60,40,120,0.3)", minWidth: 48, minHeight: 44,
     }}>{muted ? "♪ OFF" : "♪ ON"}</button>
   );
 
