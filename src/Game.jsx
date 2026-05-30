@@ -13,6 +13,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
+const VERSION = "Beta Version 0.13";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -563,6 +564,34 @@ function drawDungeon(ctx) {
   ctx.fillStyle="#a04848";ctx.fillRect(4*TILE+4,6*TILE+4,8*TILE-8,2*TILE-8);
 }
 
+// ─── Typewriter hook for hardcoded dialogue ───
+function useTypewriter() {
+  const [typingText, setTypingText] = useState(null);
+  const typingRef = useRef(null);
+  const startTyping = useCallback((key, text, speed = 25) => {
+    if (typingRef.current) clearInterval(typingRef.current);
+    setTypingText({ key, full: text, current: "", index: 0 });
+    let idx = 0;
+    typingRef.current = setInterval(() => {
+      idx++;
+      if (idx >= text.length) {
+        clearInterval(typingRef.current);
+        typingRef.current = null;
+        setTypingText(prev => prev ? { ...prev, current: prev.full } : null);
+      } else {
+        setTypingText(prev => prev ? { ...prev, current: text.slice(0, idx + 1), index: idx } : null);
+      }
+    }, speed);
+  }, []);
+  const stopTyping = useCallback(() => {
+    if (typingRef.current) clearInterval(typingRef.current);
+    typingRef.current = null;
+    setTypingText(prev => prev ? { ...prev, current: prev.full } : null);
+  }, []);
+  useEffect(() => () => { if (typingRef.current) clearInterval(typingRef.current); }, []);
+  return { typingText, startTyping, stopTyping };
+}
+
 function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel, apiKey, model }) {
   const canvasRef=useRef(null);
   const keysRef=useRef({});
@@ -578,6 +607,8 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [loading,setLoading]=useState(false);
   const [nearEntity,setNearEntity]=useState(null);
   const [sayingBye,setSayingBye]=useState(false);
+  const { typingText, startTyping, stopTyping } = useTypewriter();
+  const greetedGuardRef = useRef({left:false,right:false});
   const inputRef=useRef(null);
   const chatEndRef=useRef(null);
   const walkAwayRef=useRef(null);
@@ -601,8 +632,8 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         const dL=Math.hypot(p.x-gLx,p.y-gLy),dR=Math.hypot(p.x-gRx,p.y-gRy);
         const dDL=Math.hypot(p.x-DOOR_L.col*TILE,p.y-DOOR_L.row*TILE);
         const dDR=Math.hypot(p.x-DOOR_R.col*TILE,p.y-DOOR_R.row*TILE);
-        if(dL<INTERACT_DIST){setTalkingTo("left");setChatOpen(true);setSayingBye(false);setMessagesL(p=>p.length===0?[{role:"assistant",text:"Halt, prisoner. You may ask me anything... if you dare."}]:p);}
-        else if(dR<INTERACT_DIST){setTalkingTo("right");setChatOpen(true);setSayingBye(false);setMessagesR(p=>p.length===0?[{role:"assistant",text:"Well well... a visitor. Ask your questions carefully."}]:p);}
+        if(dL<INTERACT_DIST){setTalkingTo("left");setChatOpen(true);setSayingBye(false);const gl="Halt, prisoner. You may ask me anything... if you dare.";setMessagesL(p=>p.length===0?[{role:"assistant",text:gl}]:p);if(!greetedGuardRef.current.left){greetedGuardRef.current.left=true;startTyping("left",gl);}}
+        else if(dR<INTERACT_DIST){setTalkingTo("right");setChatOpen(true);setSayingBye(false);const gr="Well well... a visitor. Ask your questions carefully.";setMessagesR(p=>p.length===0?[{role:"assistant",text:gr}]:p);if(!greetedGuardRef.current.right){greetedGuardRef.current.right=true;startTyping("right",gr);}}
         else if(dDL<INTERACT_DIST+10){if(safeDoor==="left")onWin();else setGamePhase("lose");}
         else if(dDR<INTERACT_DIST+10){if(safeDoor==="right")onWin();else setGamePhase("lose");}
       }
@@ -680,8 +711,26 @@ SCENARIO: A prisoner (Andrew) is in a room with two doors. ${safeDoorLabel} lead
 SPATIAL LAYOUT: You stand in front of ${myDoor}. It is YOUR door, directly behind you. ${otherGuardName} stands in front of ${otherDoor}. "Your door"/"the door behind you"/"this door" = ${myDoor}. "The other door"/"his door" = ${otherDoor}. ${myDoor} leads to ${myDoorSafe?"FREEDOM":"the HANGMAN"}. ${otherDoor} leads to ${myDoorSafe?"the HANGMAN":"FREEDOM"}.
 YOUR ROLE: ${isLiar?"LIAR — you ALWAYS LIE. Every factual statement is false.":"TRUTH-TELLER — you ALWAYS tell the TRUTH."}
 FACTS: ${safeDoorLabel}=freedom. ${dangerDoorLabel}=hangman. You are the ${isLiar?"liar":"truth-teller"}. ${otherGuardName} is the ${isLiar?"truth-teller":"liar"}.
-RULES: ${isLiar?`Lie about everything. "Which door leads to freedom?" → say ${dangerDoorLabel}. "Does your door lead to freedom?" → truth is ${myDoorSafe?"yes":"no"}, so say ${myDoorSafe?"no":"yes"}. "Which door would the other guard point to?" → other guard (truth-teller) would say ${safeDoorLabel}, so you claim ${dangerDoorLabel}. "Are you the liar?" → say NO.`:`Tell truth always. "Which door leads to freedom?" → ${safeDoorLabel}. "Does your door lead to freedom?" → ${myDoorSafe?"yes":"no"}. "Which door would the other guard point to?" → other guard (liar) would say ${dangerDoorLabel}, so you say ${dangerDoorLabel}. "Are you the liar?" → NO (truthfully).`}
-PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing but willing to answer. Never break character or explain the puzzle.`;
+
+CRITICAL — ANSWER KEY (follow these EXACTLY, do not reason independently):
+${isLiar?`You are the LIAR. You must ALWAYS give the OPPOSITE of the true answer.
+Q: "Which door leads to freedom?" → A: "${dangerDoorLabel}" (truth is ${safeDoorLabel}, you lie)
+Q: "Which door leads to death/hangman?" → A: "${safeDoorLabel}" (truth is ${dangerDoorLabel}, you lie)
+Q: "Does your door lead to freedom?" → A: "${myDoorSafe?"No":"Yes"}" (truth is ${myDoorSafe?"yes":"no"}, you lie)
+Q: "What would the other guard say leads to freedom?" / "Which door would the other guard point to?" → A: "${dangerDoorLabel}" (other guard is truth-teller, would truthfully say ${safeDoorLabel}, but you LIE about what he'd say, so you say ${dangerDoorLabel})
+Q: "If I asked the other guard which door is safe, what would he say?" → A: "${dangerDoorLabel}" (same logic — lie about the truth-teller's answer)
+Q: "Are you the liar?" → A: "No" (you lie about being the liar)
+Q: "Do you always tell the truth?" → A: "Yes" (you lie)`
+:`You are the TRUTH-TELLER. You must ALWAYS give the TRUE answer.
+Q: "Which door leads to freedom?" → A: "${safeDoorLabel}" (truthful)
+Q: "Which door leads to death/hangman?" → A: "${dangerDoorLabel}" (truthful)
+Q: "Does your door lead to freedom?" → A: "${myDoorSafe?"Yes":"No"}" (truthful)
+Q: "What would the other guard say leads to freedom?" / "Which door would the other guard point to?" → A: "${dangerDoorLabel}" (other guard is liar, would lie and say ${dangerDoorLabel}, you truthfully report what the liar would say)
+Q: "If I asked the other guard which door is safe, what would he say?" → A: "${dangerDoorLabel}" (same — truthfully report the liar's lie)
+Q: "Are you the liar?" → A: "No" (truthfully, you are not)
+Q: "Do you always tell the truth?" → A: "Yes" (truthfully)`}
+
+PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing but willing to answer. Never break character or explain the puzzle. NEVER reveal which guard is the liar or truth-teller.`;
     try{
       const reply=await callLLM({model,system:sys,messages:cur,maxTokens:300,apiKey});
       if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:reply}]);
@@ -723,7 +772,7 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
           Ask them questions. Use logic. Choose wisely — your life depends on it.
         </div>
       </div>
-      <button onClick={()=>setGamePhase("play")} style={{fontFamily:FONT,fontSize:10,padding:"12px 28px",background:"#e8d070",color:"#0e0c14",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px rgba(232,208,112,0.4)",marginTop:20}}>ENTER THE DUNGEON</button>
+      <button onClick={()=>setGamePhase("play")} style={{fontFamily:FONT,fontSize:10,padding:"12px 28px",background:"#e8d070",color:"#0e0c14",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px rgba(232,208,112,0.4)",marginTop:20}}>ENTER THE DUNGEON</button><div style={{fontSize:6,marginTop:16,color:"#444"}}>{VERSION}</div>
     </div>
   );
 
@@ -757,17 +806,17 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
             <canvas ref={portraitCanvasRef} width={96} height={96} style={{imageRendering:"pixelated",width:96,height:96,borderRadius:4,border:"2px solid "+(talkingTo==="left"?"#b04040":"#4060b0"),boxShadow:"0 0 12px "+(talkingTo==="left"?"rgba(176,64,64,0.4)":"rgba(64,96,176,0.4)")}} />
           </div>
           <div style={{color:talkingTo==="left"?"#b04040":"#4060b0",fontSize:8,marginBottom:8,textAlign:"center"}}>─── {talkingTo==="left"?"GUARD 1":"GUARD 2"} ───</div>
-          <div style={{maxHeight:140,overflowY:"auto",marginBottom:8}}>
-            {msgs.map((m,i)=><div key={i} style={{color:m.role==="assistant"?"#e8d070":"#5b8dd9",fontSize:8,lineHeight:"16px",marginBottom:6,wordBreak:"break-word"}}><span style={{color:m.role==="assistant"?(talkingTo==="left"?"#b04040":"#4060b0"):"#70e870"}}>{m.role==="assistant"?(talkingTo==="left"?"GUARD 1":"GUARD 2"):"ANDREW"}:</span> {m.text}</div>)}
-            {loading&&<div style={{color:"#6a6a8a",fontSize:8}}>The guard ponders...</div>}
+          <div style={{maxHeight:140,overflowY:"auto",marginBottom:8,cursor:typingText&&typingText.current!==typingText.full?"pointer":"default"}} onClick={()=>{if(typingText&&typingText.current!==typingText.full)stopTyping();}}>
+            {(sayingBye?[{role:"assistant",text:sayingBye}]:msgs).map((m,i,arr)=><div key={i} style={{color:m.role==="assistant"?"#e8d070":"#5b8dd9",fontSize:8,lineHeight:"16px",marginBottom:6,wordBreak:"break-word",textAlign:"left"}}><span style={{color:m.role==="assistant"?(talkingTo==="left"?"#b04040":"#4060b0"):"#70e870"}}>{m.role==="assistant"?(talkingTo==="left"?"GUARD 1":"GUARD 2"):"ANDREW"}:</span> {(typingText&&i===arr.length-1&&m.role==="assistant"&&typingText.current!==typingText.full)?typingText.current:m.text}</div>)}
+            {loading&&!sayingBye&&<div style={{color:"#6a6a8a",fontSize:8}}>The guard ponders...</div>}
             <div ref={chatEndRef}/>
           </div>
-          <div style={{display:"flex",gap:6}}>
+          {!sayingBye&&<div style={{display:"flex",gap:6}}>
             <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();walkAwayRef.current?.focus();}}} placeholder="Ask the guard..." style={{flex:1,background:"#141020",border:"2px solid #3a3060",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:8,padding:"6px 8px",outline:"none"}} />
             <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:8,padding:"6px 10px",cursor:"pointer",color:"#0e0c14"}}>▶</button>
-          </div>
+          </div>}
           {sayingBye?null:
-            <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3060",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
+            <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3060",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
           }
         </div>
       )}
@@ -1418,6 +1467,8 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [discoveredClues,setDiscoveredClues]=useState([]);
   const [result,setResult]=useState(null);
   const [sayingBye,setSayingBye]=useState(false);
+  const { typingText, startTyping, stopTyping } = useTypewriter();
+  const greetedNpcRef = useRef({});
   const [accusation,setAccusation]=useState(null); // null | {step:"who"|"what"|"where", who:null, what:null, where:null}
   const inputRef=useRef(null);
   const chatEndRef=useRef(null);
@@ -1428,8 +1479,10 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const examiningRef=useRef(null);
   const greetedRef=useRef(false);
   const examCanvasRef=useRef(null);
-  const cutsceneRef=useRef(true);
-  const leadPosRef=useRef({x:10*TILE, y:10*TILE});
+  const cutsceneRef=useRef("pause");
+  const cutsceneTimerRef=useRef(48);
+  const leadPosRef=useRef({x:10*TILE, y:8*TILE});
+  const typewriterRef=useRef(null);
 
   // Wandering suspects
   const wanderRef=useRef({
@@ -1479,19 +1532,20 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
           const nx=w?w.x:npc.x, ny=w?w.y:npc.y;
           if(isFacing(nx,ny)){
             setTalkingTo(npc.key);setChatOpen(true);
+            let greeting="";
+            if(npc.key==="mauve")greeting="Hmph. I'm a very busy woman. What do you want?";
+            if(npc.key==="viscount")greeting="*adjusts monocle* Ah, the detective. How tedious.";
+            if(npc.key==="duchess")greeting="Oh my! A real detective? How thrilling!";
+            if(npc.key==="cop")greeting="Detective Andrew. Got a theory? You can chat with me, or when you're ready, hit the MAKE ACCUSATION button.";
+            if(npc.key==="lead")greeting="Need more details, detective? Ask away.";
+            if(npc.key==="soothsayer")greeting="The spirits whisper to me... One of the three suspects speaks only lies. But the mists obscure which one... I also sense that each suspect was in a separate room, each with a separate object, at the time of the murder. Trust your wits, detective.";
+            if(npc.key==="forensics")greeting="I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three.";
             setMessages(prev=>{
               if(prev[npc.key].length>0)return prev;
-              let greeting="";
-              if(npc.key==="mauve")greeting="Hmph. I'm a very busy woman. What do you want?";
-              if(npc.key==="viscount")greeting="*adjusts monocle* Ah, the detective. How tedious.";
-              if(npc.key==="duchess")greeting="Oh my! A real detective? How thrilling!";
-              if(npc.key==="cop")greeting="Detective Andrew. Got a theory? You can chat with me, or when you're ready, hit the MAKE ACCUSATION button.";
-              if(npc.key==="lead")greeting="Need more details, detective? Ask away.";
-              if(npc.key==="soothsayer")greeting="The spirits whisper to me... One of the three suspects speaks only lies. But the mists obscure which one... I also sense that each suspect was in a separate room, each with a separate object, at the time of the murder. Trust your wits, detective.";
-              if(npc.key==="forensics")greeting="I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three.";
               return{...prev,[npc.key]:[{role:"assistant",text:greeting}]};
             });
-            if(npc.key==="soothsayer") setDiscoveredClues(prev => prev.includes("The Soothsayer senses each suspect was in a separate room with a separate object.") ? prev : [...prev, "The Soothsayer senses each suspect was in a separate room with a separate object."]);
+            if(!greetedNpcRef.current[npc.key]){greetedNpcRef.current[npc.key]=true;startTyping(npc.key,greeting);}
+            if(npc.key==="soothsayer") setDiscoveredClues(prev => { let c=[...prev]; if(!c.includes("The Soothsayer senses one suspect is lying  the others tell the truth."))c.push("The Soothsayer senses one suspect is lying  the others tell the truth."); if(!c.includes("The Soothsayer senses each suspect was in a separate room with a separate object."))c.push("The Soothsayer senses each suspect was in a separate room with a separate object."); return c; });
             foundNpc=true;
             break;
           }
@@ -1545,18 +1599,27 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
       const p=playerRef.current,keys=keysRef.current;let moved=false;
       const curRoom=roomRef.current;
 
-      // Cutscene: Lead Detective walks down to greet player
+      // Cutscene: Lead Detective notices player, then walks to greet
       if(cutsceneRef.current&&curRoom==="hall"){
         const lp=leadPosRef.current;
-        const dy=p.y-lp.y;
-        if(dy>TILE*1.5){
-          lp.y+=1.8;
-        }else{
-          cutsceneRef.current=false;
-          const greeting="Thank God you're here! There's been a murder at the Ashworth Gallery! Lord Ashworth, the curator, was found dead right here in the entry hall. Blunt force trauma. We have three suspects: VP Mauve \u2014 a corporate executive who funded the new wing, Viscount Eminence \u2014 an aristocrat who loaned pieces to the collection, and The Duchess of Vermillion \u2014 a wealthy socialite and frequent patron. Question them, examine the evidence, and report to Detective Andrews with your accusation: WHO did it, with WHAT weapon, and WHERE.";
-          setMessages(prev=>({...prev,lead:[{role:"assistant",text:greeting}]}));
-          setTalkingTo("lead");
-          setChatOpen(true);
+        if(cutsceneRef.current==="pause"){
+          cutsceneTimerRef.current--;
+          if(cutsceneTimerRef.current<=0){cutsceneRef.current="alert";cutsceneTimerRef.current=80;}
+        }else if(cutsceneRef.current==="alert"){
+          cutsceneTimerRef.current--;
+          if(cutsceneTimerRef.current<=0){cutsceneRef.current="walk";}
+        }else if(cutsceneRef.current==="walk"){
+          const dy=p.y-lp.y;
+          if(dy>TILE*1.5){
+            lp.y+=1.8;
+          }else{
+            cutsceneRef.current=false;
+            const greeting="Thank God you're here! There's been a murder at the Ashworth Gallery! Lord Ashworth, the curator, was found dead right here in the entry hall. Blunt force trauma. We have three suspects: VP Mauve \u2014 a corporate executive who funded the new wing, Viscount Eminence \u2014 an aristocrat who loaned pieces to the collection, and The Duchess of Vermillion \u2014 a wealthy socialite and frequent patron. Question them, examine the evidence, and report to Detective Andrews with your accusation: WHO did it, with WHAT weapon, and WHERE.";
+            setMessages(prev=>({...prev,lead:[{role:"assistant",text:greeting}]}));
+            setTalkingTo("lead");
+            setChatOpen(true);
+            greetedNpcRef.current["lead"]=true;startTyping("lead",greeting);
+          }
         }
       }
 
@@ -1706,6 +1769,12 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         ctx.fillStyle=npc.color;ctx.font="5px "+FONT;ctx.textAlign="center";
         ctx.fillText(npc.label,drawX+16,drawY-8);ctx.textAlign="left";
       });
+      // Draw "!" alert above detective during alert phase
+      if(cutsceneRef.current==="alert"){
+        const lp=leadPosRef.current;
+        ctx.fillStyle="#e8d070";ctx.font="14px "+FONT;ctx.textAlign="center";
+        ctx.fillText("!",lp.x+16,lp.y-14);ctx.textAlign="left";
+      }
       drawPlayer(ctx,p.x,p.y,p.dir,p.frame);
       if(!chatOpenRef.current&&!examiningRef.current&&!cutsceneRef.current){
         if(ne){const npc=activeNpcs.find(n=>n.key===ne);if(npc){const w=wander[npc.key];drawZPrompt(ctx,w?w.x:npc.x,w?w.y:npc.y);}}
@@ -1893,7 +1962,12 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
           {discoveredClues.length === 0 ? (
             <div style={{color:"#8a8a7a",fontSize:7,lineHeight:"16px",fontStyle:"italic"}}>No clues discovered yet. Examine objects and talk to people.</div>
           ) : (
-            discoveredClues.map((clue, i) => (
+            [
+              ...discoveredClues.filter(c=>c.includes("statement:")),
+              ...discoveredClues.filter(c=>c.includes("thread")||c.includes("Security footage")),
+              ...discoveredClues.filter(c=>c.includes("Soothsayer")),
+              ...discoveredClues.filter(c=>!c.includes("statement:")&&!c.includes("thread")&&!c.includes("Security footage")&&!c.includes("Soothsayer")),
+            ].map((clue, i) => (
               <div key={i} style={{color:"#c8b880",fontSize:7,lineHeight:"16px",marginBottom:4}}>• {clue}</div>
             ))
           )}
@@ -1908,15 +1982,15 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
             <canvas ref={portraitRef} width={96} height={96} style={{imageRendering:"pixelated",border:"3px solid "+ti.color,borderRadius:4,boxShadow:"0 0 10px "+ti.color+"66"}} />
           </div>
           <div style={{color:ti.color,fontSize:8,marginBottom:8,textAlign:"center"}}>─── {ti.name} ───</div>
-          <div style={{maxHeight:140,overflowY:"auto",marginBottom:8}}>
-            {curMsgs.map((m,i)=><div key={i} style={{color:m.role==="assistant"?"#e8d070":"#5b8dd9",fontSize:8,lineHeight:"16px",marginBottom:6,wordBreak:"break-word"}}><span style={{color:m.role==="assistant"?ti.color:"#70e870"}}>{m.role==="assistant"?ti.name:"ANDREW"}:</span> {m.text}</div>)}
-            {loading&&<div style={{color:"#8a8a7a",fontSize:8}}>Thinking...</div>}
+          <div style={{maxHeight:140,overflowY:"auto",marginBottom:8,cursor:typingText&&typingText.current!==typingText.full?"pointer":"default"}} onClick={()=>{if(typingText&&typingText.current!==typingText.full)stopTyping();}}>
+            {(sayingBye?[{role:"assistant",text:sayingBye}]:curMsgs).map((m,i,arr)=><div key={i} style={{color:m.role==="assistant"?"#e8d070":"#5b8dd9",fontSize:8,lineHeight:"16px",marginBottom:6,wordBreak:"break-word",textAlign:"left"}}><span style={{color:m.role==="assistant"?ti.color:"#70e870"}}>{m.role==="assistant"?ti.name:"ANDREW"}:</span> {(typingText&&i===arr.length-1&&m.role==="assistant"&&typingText.current!==typingText.full)?typingText.current:m.text}</div>)}
+            {loading&&!sayingBye&&<div style={{color:"#8a8a7a",fontSize:8}}>Thinking...</div>}
             <div ref={chatEndRef}/>
           </div>
-          <div style={{display:"flex",gap:6}}>
+          {!sayingBye&&<div style={{display:"flex",gap:6}}>
             <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();walkAwayRef.current?.focus();}}} placeholder="Ask a question..." style={{flex:1,background:"#0e0c14",border:"2px solid #3a3040",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:8,padding:"6px 8px",outline:"none"}} />
             <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:8,padding:"6px 10px",cursor:"pointer",color:"#1a1420"}}>▶</button>
-          </div>
+          </div>}
           {talkingTo==="cop"&&!accusation&&!sayingBye&&(
             <button onClick={()=>setAccusation({step:"who",who:null,what:null,where:null})} style={{marginTop:6,background:"#cc3030",border:"2px solid #ff4444",borderRadius:4,color:"#fff",fontFamily:FONT,fontSize:8,padding:"6px 8px",cursor:"pointer",width:"100%",boxShadow:"0 0 10px rgba(204,48,48,0.3)"}}>⚖ MAKE ACCUSATION</button>
           )}
@@ -1943,7 +2017,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
                 {["Entry Hall","Bathroom","Gift Shop"].map(s=>(
                   <button key={s} onClick={()=>{
                     const correct=accusation.who==="Duchess of Vermillion"&&accusation.what==="Abstract Statue"&&s==="Gift Shop";
-                    setMessages(prev=>({...prev,cop:[...prev.cop,{role:"assistant",text:correct?"CASE CLOSED! The Duchess of Vermillion... with the abstract statue... in the gift shop! Brilliant work, detective!":"That's not right, detective. Go back and check the evidence. You can try again when you're ready."}]}));
+                    const resultText=correct?"CASE CLOSED! The Duchess of Vermillion... with the abstract statue... in the gift shop! Brilliant work, detective!":"That's not right, detective. Go back and check the evidence. You can try again when you're ready.";setMessages(prev=>({...prev,cop:[...prev.cop,{role:"assistant",text:resultText}]}));startTyping("cop",resultText);
                     setAccusation(null);
                     if(correct)setTimeout(()=>setResult("win"),1500);
                     else setTimeout(()=>setResult("wrong"),1500);
@@ -1954,7 +2028,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
             </div>
           )}
           {sayingBye?null:
-            <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(true);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},1500);}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3040",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
+            <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3040",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
           }
         </div>
       )}
@@ -2142,6 +2216,7 @@ export default function Game() {
         }}>Start Game</button>
         <div style={{fontSize:7,marginTop:20,color:"#666",maxWidth:350,lineHeight:"1.8"}}>
           {selectedProvider === "anthropic" ? "Your key is stored in localStorage only. Get one at console.anthropic.com" : ""}
+        <div style={{fontSize:6,marginTop:16,color:"#444"}}>{VERSION}</div>
         </div>
       </div>
     );
