@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.57";
+const VERSION = "Beta Version 0.58";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -1876,10 +1876,11 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
             if(npc.key==="forensics")greeting="Oh, I seem to have dropped my notebook somewhere in the museum... if you find it, it could be very useful for tracking clues. Anyway — I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three.";
             setMessages(prev=>{
               if(npc.key==="cop"){return{...prev,cop:[{role:"assistant",text:greeting},...prev.cop.slice(1)]};}
+              if(npc.key==="lead"){return{...prev,lead:[{role:"assistant",text:greeting},...prev.lead.slice(1)]};}
               if(prev[npc.key].length>0)return prev;
               return{...prev,[npc.key]:[{role:"assistant",text:greeting}]};
             });
-            if(!greetedNpcRef.current[npc.key]){greetedNpcRef.current[npc.key]=true;startTyping(npc.key,greeting);}
+            if(!greetedNpcRef.current[npc.key]||npc.key==="cop"||npc.key==="lead"){greetedNpcRef.current[npc.key]=true;startTyping(npc.key,greeting);}
             if(npc.key==="soothsayer"){ queueClue("One suspect is lying  the others tell the truth."); queueClue("Each suspect was in a separate room with a separate object."); }
             foundNpc=true;
             break;

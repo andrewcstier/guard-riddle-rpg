@@ -13,7 +13,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.57";
+const VERSION = "Beta Version 0.58";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
