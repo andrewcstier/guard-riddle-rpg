@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.54";
+const VERSION = "Beta Version 0.55";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -2683,7 +2683,7 @@ export default function GameMobile() {
       <button onClick={()=>setLevel(1)} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #3a3060",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
         <span style={{color:"#70e870"}}>Level 1:</span> The Two Guards<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>A classic logic puzzle in a dark dungeon</span>
       </button>
-      <button onClick={()=>setLevel("1hard")} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #cc4444",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
+      <button onClick={()=>setLevel("1hard")} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #3a3060",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
         <span style={{color:"#ff6644"}}>Level 1 (Hard):</span> The Two Guards<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>One question only — both guards vanish after</span>
       </button>
       <button onClick={()=>setLevel(2)} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #5a4a30",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
