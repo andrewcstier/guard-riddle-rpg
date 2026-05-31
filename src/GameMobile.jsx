@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.56";
+const VERSION = "Beta Version 0.57";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -1786,6 +1786,7 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   }, []);
   const greetedNpcRef = useRef({});
   const [accusation,setAccusation]=useState(null);// null | {step:"who"|"what"|"where", who:null, what:null, where:null}
+  const [accusationPending,setAccusationPending]=useState(null);// null | {correct:bool}
   const inputRef=useRef(null);
   const chatEndRef=useRef(null);
   const walkAwayRef=useRef(null);
@@ -2432,11 +2433,11 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
             {loading&&!sayingBye&&<div style={{color:"#8a8a7a",fontSize:11}}>Thinking...</div>}
             <div ref={chatEndRef}/>
           </div>
-          {!sayingBye&&<div style={{display:"flex",gap:6}}>
+          {!sayingBye&&!accusationPending&&<div style={{display:"flex",gap:6}}>
             <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();}} placeholder="Ask a question..." style={{flex:1,background:"#0e0c14",border:"2px solid #3a3040",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:10,padding:"10px 10px",outline:"none",minHeight:44}} />
             <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:"50%",fontFamily:FONT,fontSize:16,width:48,height:48,cursor:"pointer",color:"#1a1420",display:"flex",alignItems:"center",justifyContent:"center"}}>▲</button>
           </div>}
-          {talkingTo==="cop"&&!accusation&&!sayingBye&&(
+          {talkingTo==="cop"&&!accusation&&!sayingBye&&!accusationPending&&(
             <button onClick={()=>setAccusation({step:"who",who:null,what:null,where:null})} style={{marginTop:6,background:"#cc3030",border:"2px solid #ff4444",borderRadius:4,color:"#fff",fontFamily:FONT,fontSize:8,padding:"10px 8px",cursor:"pointer",width:"100%",boxShadow:"0 0 10px rgba(204,48,48,0.3)",minHeight:44}}>⚖ MAKE ACCUSATION</button>
           )}
           {accusation&&(
@@ -2464,16 +2465,17 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
                     const correct=accusation.who==="Duchess of Vermillion"&&accusation.what==="Abstract Statue"&&s==="Gift Shop";
                     const resultText=correct?"CASE CLOSED! The Duchess of Vermillion... with the abstract statue... in the gift shop! Brilliant work, detective!":"That's not right, detective. Go back and check the evidence. You can try again when you're ready.";setMessages(prev=>({...prev,cop:[...prev.cop,{role:"assistant",text:resultText}]}));startTyping("cop",resultText);
                     setAccusation(null);
-                    const delay=Math.max(3000,resultText.length*25+1000);
-                    if(correct)setTimeout(()=>{stopTyping();setChatOpen(false);setResult("win");},delay);
-                    else setTimeout(()=>{stopTyping();setChatOpen(false);setResult("wrong");},delay);
+                    setAccusationPending({correct});
                   }} style={{display:"block",width:"100%",marginBottom:4,padding:"10px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left",minHeight:44}}>{s}</button>
                 ))}
                 <button onClick={()=>setAccusation(null)} style={{marginTop:4,background:"transparent",border:"1px solid #666",borderRadius:3,color:"#666",fontFamily:FONT,fontSize:6,padding:"3px 6px",cursor:"pointer",width:"100%"}}>CANCEL</button>
               </>)}
             </div>
           )}
-          {sayingBye?null:
+          {accusationPending&&!sayingBye&&(
+            <button onClick={()=>{stopTyping();setChatOpen(false);const c=accusationPending.correct;setAccusationPending(null);setResult(c?"win":"wrong");}} style={{marginTop:6,background:accusationPending.correct?"#1a3020":"#2a1020",border:"2px solid "+(accusationPending.correct?"#44cc44":"#cc4444"),borderRadius:4,color:accusationPending.correct?"#70e870":"#ff6644",fontFamily:FONT,fontSize:10,padding:"12px 8px",cursor:"pointer",width:"100%",minHeight:44}}>NEXT...</button>
+          )}
+          {sayingBye||accusationPending?null:
             <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #8a7a50",borderRadius:4,color:"#a09070",fontFamily:FONT,fontSize:9,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
           }
         </div>
