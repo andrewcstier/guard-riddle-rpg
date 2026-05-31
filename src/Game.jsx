@@ -13,7 +13,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.58";
+const VERSION = "Beta Version 0.59";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -1931,6 +1931,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
     try{
       const reply=await callLLM({model,system:sys,messages:curMsgs,maxTokens:400,apiKey});
       setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:reply}]}));
+      startTyping(talkingTo,reply);
       // Record suspect statements as clues when they actually say them
       const rl=reply.toLowerCase();
       if(talkingTo==="mauve"&&rl.includes("vase")&&rl.includes("viscount"))
