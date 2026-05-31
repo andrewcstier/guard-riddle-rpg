@@ -13,7 +13,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.22";
+const VERSION = "Beta Version 0.47";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -97,6 +97,15 @@ async function initMusic(level, muted) {
 function setMusicGain(muted) {
   if (currentGainNode) currentGainNode.gain.rampTo(muted ? 0 : 1, 0.1);
 }
+
+// Resume audio context when returning from background
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && musicInitDone) {
+    Tone.getContext().resume().then(() => {
+      if (Tone.getTransport().state !== "started") Tone.getTransport().start();
+    });
+  }
+});
 
 // ═══════════════════════════════════════
 // SHARED DRAWING HELPERS
@@ -848,14 +857,14 @@ const L2_ALL_NPCS=[
 // Door configs per room
 const L2_ROOM_DOORS={
   hall:[
-    {col:0,row:7,label:"BATH",target:"bathroom",spawnX:17*TILE,spawnY:7*TILE},
-    {col:19,row:7,label:"GIFT SHOP",target:"giftshop",spawnX:2*TILE,spawnY:7*TILE},
+    {col:0,row:7,label:"BATH",target:"bathroom",spawnX:(L2_COLS-2)*TILE,spawnY:7*TILE},
+    {col:L2_COLS-1,row:7,label:"GIFT SHOP",target:"giftshop",spawnX:1*TILE,spawnY:7*TILE},
   ],
   bathroom:[
-    {col:19,row:7,label:"EXIT",target:"hall",spawnX:2*TILE,spawnY:7*TILE},
+    {col:L2_COLS-1,row:7,label:"EXIT",target:"hall",spawnX:1*TILE,spawnY:7*TILE},
   ],
   giftshop:[
-    {col:0,row:7,label:"EXIT",target:"hall",spawnX:17*TILE,spawnY:7*TILE},
+    {col:0,row:7,label:"EXIT",target:"hall",spawnX:(L2_COLS-2)*TILE,spawnY:7*TILE},
   ],
 };
 
@@ -1450,6 +1459,7 @@ const L2_EXAMINABLES=[
 ];
 
 function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel, apiKey, model }) {
+  useEffect(()=>{startMusicForLevel();},[]);
   const canvasRef=useRef(null);
   const portraitRef=useRef(null);
   const keysRef=useRef({});
@@ -1538,16 +1548,17 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
             if(npc.key==="mauve")greeting="Hmph. I'm a very busy woman. What do you want?";
             if(npc.key==="viscount")greeting="*adjusts monocle* Ah, the detective. How tedious.";
             if(npc.key==="duchess")greeting="Oh my! A real detective? How thrilling!";
-            if(npc.key==="cop")greeting="Detective Andrew. Got a theory? You can chat with me, or when you're ready, hit the MAKE ACCUSATION button.";
+            if(npc.key==="cop")greeting=discoveredClues.length>=7?"Detective Andrew. Looks like you have all the clues you need to solve this case! When you're ready, hit the MAKE ACCUSATION button.":"Detective Andrew. I think you need more clues still. Keep investigating and come back when you're ready.";
             if(npc.key==="lead")greeting="Need more details, detective? Ask away.";
             if(npc.key==="soothsayer")greeting="The spirits whisper to me... One of the three suspects speaks only lies. But the mists obscure which one... I also sense that each suspect was in a separate room, each with a separate object, at the time of the murder. Trust your wits, detective.";
             if(npc.key==="forensics")greeting="I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three.";
             setMessages(prev=>{
+              if(npc.key==="cop"){return{...prev,cop:[{role:"assistant",text:greeting},...prev.cop.slice(1)]};}
               if(prev[npc.key].length>0)return prev;
               return{...prev,[npc.key]:[{role:"assistant",text:greeting}]};
             });
             if(!greetedNpcRef.current[npc.key]){greetedNpcRef.current[npc.key]=true;startTyping(npc.key,greeting);}
-            if(npc.key==="soothsayer") setDiscoveredClues(prev => { let c=[...prev]; if(!c.includes("The Soothsayer senses one suspect is lying  the others tell the truth."))c.push("The Soothsayer senses one suspect is lying  the others tell the truth."); if(!c.includes("The Soothsayer senses each suspect was in a separate room with a separate object."))c.push("The Soothsayer senses each suspect was in a separate room with a separate object."); return c; });
+            if(npc.key==="soothsayer") setDiscoveredClues(prev => { let c=[...prev]; if(!c.includes("One suspect is lying  the others tell the truth."))c.push("One suspect is lying  the others tell the truth."); if(!c.includes("Each suspect was in a separate room with a separate object."))c.push("Each suspect was in a separate room with a separate object."); return c; });
             foundNpc=true;
             break;
           }
@@ -1723,16 +1734,19 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         if(walkable(nx,ny)){p.x=nx;p.y=ny;}
         else if(walkable(nx,p.y)){p.x=nx;}
         else if(walkable(p.x,ny)){p.y=ny;}
-        // Door transition
+        // Door transition — must be facing the door
         const doors=L2_ROOM_DOORS[curRoom];
         for(const door of doors){
           const dcx=door.col*TILE+TILE/2,dcy=door.row*TILE+TILE/2;
           const pcx=p.x+TILE/2,pcy=p.y+TILE/2;
           if(Math.hypot(pcx-dcx,pcy-dcy)<TILE*1.2){
-            roomRef.current=door.target;
-            setRoom(door.target);
-            p.x=door.spawnX;p.y=door.spawnY;
-            break;
+            const facing=(door.col===0&&p.dir==="left")||(door.col===L2_COLS-1&&p.dir==="right")||(door.row===L2_ROWS-1&&p.dir==="down")||(door.row===0&&p.dir==="up");
+            if(facing){
+              roomRef.current=door.target;
+              setRoom(door.target);
+              p.x=door.spawnX;p.y=door.spawnY;
+              break;
+            }
           }
         }
       }
@@ -2174,7 +2188,7 @@ async function callLLM({ model, system, messages, maxTokens, apiKey }) {
 }
 
 export default function Game() {
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(null);
   const [muted, setMuted] = useState(false);
   const [gameKey, setGameKey] = useState(0);
 
@@ -2251,7 +2265,7 @@ export default function Game() {
         display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"
       }}>
-        <div style={{fontSize:16,marginBottom:30}}>⚔ Guard Riddle RPG ⚔</div>
+        <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
         <div style={{fontSize:9,color:"#a89cc8",marginBottom:20,lineHeight:"1.8"}}>{warmStatus}</div>
         <div style={{fontSize:24,animation:"spin 1.5s linear infinite"}}>⚔</div>
         <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
@@ -2265,7 +2279,7 @@ export default function Game() {
         display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"
       }}>
-        <div style={{fontSize:16,marginBottom:30}}>⚔ Guard Riddle RPG ⚔</div>
+        <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
         <div style={{fontSize:9,marginBottom:20,color:"#a89cc8",maxWidth:400,lineHeight:"1.8"}}>
           Choose an AI model for NPC dialogue.
         </div>
@@ -2320,7 +2334,22 @@ export default function Game() {
     }}>{muted ? "♪ OFF" : "♪ ON"}</button>
   );
 
-  const restart = () => { setLevel(1); setGameKey(k => k + 1); currentLevel = null; };
+  const restart = () => { setLevel(null); setGameKey(k => k + 1); currentLevel = null; };
+
+  if (level === null) return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"}}>
+      {muteBtn}
+      <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
+      <div style={{fontSize:9,marginBottom:24,color:"#a89cc8",lineHeight:"1.8"}}>Choose your adventure</div>
+      <button onClick={()=>setLevel(1)} style={{width:320,padding:"12px 20px",fontSize:9,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #3a3060",borderRadius:8,color:"#e8d070",marginBottom:12,textAlign:"left"}}>
+        <span style={{color:"#70e870"}}>Level 1:</span> The Two Guards<br/><span style={{fontSize:6,color:"#8a7a6a",marginTop:4,display:"block"}}>A classic logic puzzle in a dark dungeon</span>
+      </button>
+      <button onClick={()=>setLevel(2)} style={{width:320,padding:"12px 20px",fontSize:9,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #5a4a30",borderRadius:8,color:"#e8d070",marginBottom:12,textAlign:"left"}}>
+        <span style={{color:"#cc3030"}}>Level 2:</span> Murder at the Ashworth Gallery<br/><span style={{fontSize:6,color:"#8a7a6a",marginTop:4,display:"block"}}>Investigate a murder mystery at a museum</span>
+      </button>
+      <div style={{fontSize:6,marginTop:20,color:"#444"}}>{VERSION}</div>
+    </div>
+  );
 
   if (level === 1) return <Level1 key={gameKey} onWin={() => setLevel(2)} onRestart={restart} muted={muted} setMuted={setMuted} muteBtn={muteBtn} startMusicForLevel={startMusicForLevel} apiKey={apiKey} model={model} />;
   if (level === 2) return <Level2 key={gameKey + "-l2"} onWin={restart} onRestart={restart} muted={muted} setMuted={setMuted} muteBtn={muteBtn} startMusicForLevel={startMusicForLevel} apiKey={apiKey} model={model} />;

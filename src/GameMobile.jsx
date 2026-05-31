@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.23";
+const VERSION = "Beta Version 0.47";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -106,6 +106,36 @@ async function initMusic(level, muted) {
 function setMusicGain(muted) {
   if (currentGainNode) currentGainNode.gain.rampTo(muted ? 0 : 1, 0.1);
 }
+
+// Resume audio context when returning from background (mobile app switch / sleep)
+let _needsResume = false;
+let _lastLevel = null;
+let _lastMuted = false;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && musicInitDone) {
+    _needsResume = true;
+    _lastLevel = currentLevel;
+    _lastMuted = currentGainNode ? currentGainNode.gain.value === 0 : false;
+  }
+  if (document.visibilityState === "hidden" && musicInitDone) {
+    _lastLevel = currentLevel;
+    _lastMuted = currentGainNode ? currentGainNode.gain.value === 0 : false;
+  }
+});
+// Reinit music on first touch after wake — always works on iOS
+document.addEventListener("touchstart", () => {
+  if (_needsResume) {
+    _needsResume = false;
+    const lvl = _lastLevel || currentLevel;
+    if (lvl === null) return;
+    // Force complete reinit
+    try { Tone.getTransport().stop(); Tone.getTransport().cancel(); } catch {}
+    musicInitDone = false;
+    currentLevel = null;
+    currentGainNode = null;
+    initMusic(lvl, _lastMuted);
+  }
+}, { passive: true });
 
 // ═══════════════════════════════════════
 // SHARED DRAWING HELPERS
@@ -426,9 +456,9 @@ function drawZPrompt(ctx, x, y) {
 // ═══════════════════════════════════════
 // TOUCH CONTROLS OVERLAY (Mobile)
 // ═══════════════════════════════════════
-function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hidden }) {
+function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hidden, showNotebook, onNotebookToggle }) {
   const [pressed, setPressed] = useState({});
-  if (hidden) return null;
+  if (hidden && !showNotebook) return null;
 
   const handleDPad = (key, isDown, e) => {
     if (e) e.preventDefault();
@@ -463,7 +493,7 @@ function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hi
       pointerEvents: "none",
     }}>
       {/* D-pad */}
-      <div style={{ display: "grid", gridTemplateColumns: "52px 52px 52px", gridTemplateRows: "52px 52px 52px", gap: 3, pointerEvents: "auto" }}>
+      {!hidden&&<div style={{ display: "grid", gridTemplateColumns: "52px 52px 52px", gridTemplateRows: "52px 52px 52px", gap: 3, pointerEvents: "auto" }}>
         <div/>
         <button style={dpadBtn("ArrowUp", "▲", pressed.ArrowUp)}
           onTouchStart={(e) => { e.preventDefault(); handleDPad("ArrowUp", true, e); }}
@@ -485,7 +515,7 @@ function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hi
           onTouchEnd={(e) => { e.preventDefault(); handleDPad("ArrowDown", false, e); }}
           onTouchCancel={(e) => { handleDPad("ArrowDown", false, e); }}>▼</button>
         <div/>
-      </div>
+      </div>}
 
       {/* Action buttons */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", pointerEvents: "auto", paddingBottom: 4 }}>
@@ -499,6 +529,15 @@ function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hi
             }}
               onTouchStart={(e) => { e.preventDefault(); dispatchKey("c", "keydown"); }}>C</button>
           )}
+          {showNotebook && (
+            <button style={{
+              width: 46, height: 46,
+              background: "rgba(90,80,60,0.7)", border: "2px solid #e8d070", borderRadius: 10,
+              color: "#e8d070", fontSize: 20,
+              touchAction: "none", userSelect: "none", cursor: "pointer",
+            }}
+              onTouchStart={(e) => { e.preventDefault(); onNotebookToggle(); }}>📓</button>
+          )}
           {showCloseBtn && (
             <button style={{
               width: 46, height: 46,
@@ -509,7 +548,7 @@ function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hi
               onTouchStart={(e) => { e.preventDefault(); dispatchKey("Escape", "keydown"); }}>✕</button>
           )}
         </div>
-        <button style={{
+        {!hidden&&<button style={{
           width: 68, height: 68,
           background: pressed.z ? "rgba(232,208,112,0.95)" : "rgba(232,208,112,0.6)",
           border: "3px solid #e8d070", borderRadius: 34,
@@ -519,7 +558,7 @@ function TouchControls({ keysRef, startMusicForLevel, showCBtn, showCloseBtn, hi
         }}
           onTouchStart={(e) => { e.preventDefault(); setPressed(p => ({ ...p, z: true })); startMusicForLevel(); dispatchKey("z", "keydown"); }}
           onTouchEnd={(e) => { e.preventDefault(); setPressed(p => ({ ...p, z: false })); dispatchKey("z", "keyup"); }}
-          onTouchCancel={(e) => { setPressed(p => ({ ...p, z: false })); dispatchKey("z", "keyup"); }}>A</button>
+          onTouchCancel={(e) => { setPressed(p => ({ ...p, z: false })); dispatchKey("z", "keyup"); }}>A</button>}
       </div>
     </div>
   );
@@ -1035,14 +1074,14 @@ const L2_ALL_NPCS=[
 // Door configs per room
 const L2_ROOM_DOORS={
   hall:[
-    {col:0,row:7,label:"BATH",target:"bathroom",spawnX:17*TILE,spawnY:7*TILE},
-    {col:19,row:7,label:"GIFT SHOP",target:"giftshop",spawnX:2*TILE,spawnY:7*TILE},
+    {col:0,row:7,label:"BATH",target:"bathroom",spawnX:(L2_COLS-2)*TILE,spawnY:7*TILE},
+    {col:L2_COLS-1,row:7,label:"GIFT SHOP",target:"giftshop",spawnX:1*TILE,spawnY:7*TILE},
   ],
   bathroom:[
-    {col:19,row:7,label:"EXIT",target:"hall",spawnX:2*TILE,spawnY:7*TILE},
+    {col:L2_COLS-1,row:7,label:"EXIT",target:"hall",spawnX:1*TILE,spawnY:7*TILE},
   ],
   giftshop:[
-    {col:0,row:7,label:"EXIT",target:"hall",spawnX:17*TILE,spawnY:7*TILE},
+    {col:0,row:7,label:"EXIT",target:"hall",spawnX:(L2_COLS-2)*TILE,spawnY:7*TILE},
   ],
 };
 
@@ -1138,13 +1177,13 @@ function drawEntryHall(ctx) {
   ctx.fillStyle="#556";ctx.fillRect(4*TILE+6,3*TILE+8,14,14);
   ctx.fillStyle="#667";ctx.fillRect(4*TILE+10,3*TILE+4,6,8);
   ctx.font="10px "+FONT;ctx.textAlign="center";ctx.fillStyle="#30a050";ctx.fillText("EVIDENCE",3.5*TILE,3*TILE-2);ctx.textAlign="left";
-  // Security monitor
-  ctx.fillStyle="#444";ctx.fillRect(16*TILE+4,3*TILE+2,24,20);
-  ctx.fillStyle="#0a1a0a";ctx.fillRect(16*TILE+6,3*TILE+4,20,14);
-  ctx.fillStyle="#00ff00";ctx.fillRect(16*TILE+8,3*TILE+6,4,2);
-  for(var si=0;si<4;si++){ctx.fillStyle="rgba(0,255,0,0.1)";ctx.fillRect(16*TILE+6,3*TILE+4+si*4,20,1);}
-  ctx.fillStyle="#555";ctx.fillRect(16*TILE+12,3*TILE+22,8,6);
-  ctx.fillStyle="#444";ctx.fillRect(16*TILE+8,3*TILE+28,16,2);
+  // Security camera on right wall
+  ctx.fillStyle="#555";ctx.fillRect((L2_COLS-1)*TILE+6,4*TILE+6,14,20);
+  ctx.fillStyle="#333";ctx.fillRect((L2_COLS-1)*TILE+8,4*TILE+4,10,4);
+  ctx.fillStyle="#333";ctx.fillRect((L2_COLS-1)*TILE+8,4*TILE+26,10,4);
+  ctx.fillStyle="#222";ctx.fillRect((L2_COLS-1)*TILE-2,4*TILE+12,10,8);
+  ctx.fillStyle="#0a2a3a";ctx.fillRect((L2_COLS-1)*TILE,4*TILE+14,6,4);
+  ctx.fillStyle="#ff0000";ctx.fillRect((L2_COLS-1)*TILE+8,4*TILE+6,3,3);
 }
 
 function drawBathroom(ctx) {
@@ -1188,12 +1227,15 @@ function drawBathroom(ctx) {
   ctx.fillStyle="#aaddee";ctx.fillRect(3*TILE+6,1*TILE+6,TILE*2-12,TILE-8);
   ctx.fillStyle="#ccc";ctx.fillRect(7*TILE+4,1*TILE+4,TILE*2-8,TILE-4);
   ctx.fillStyle="#aaddee";ctx.fillRect(7*TILE+6,1*TILE+6,TILE*2-12,TILE-8);
-  // Stalls
+  // Stalls with toilets
   for(let i=0;i<3;i++){
     const sx=2*TILE+i*4*TILE;
     ctx.fillStyle="#607080";ctx.fillRect(sx,7*TILE,3*TILE,3*TILE);
     ctx.fillStyle="#506070";ctx.fillRect(sx+4,7*TILE+4,3*TILE-8,3*TILE-4);
-    ctx.fillStyle="#708090";ctx.fillRect(sx+TILE,7*TILE+4,TILE,2);
+    // Toilet
+    ctx.fillStyle="#ddd";ctx.fillRect(sx+TILE-4,8*TILE+4,TILE+8,TILE-8);
+    ctx.fillStyle="#eee";ctx.fillRect(sx+TILE-2,8*TILE+6,TILE+4,TILE-12);
+    ctx.fillStyle="#ccc";ctx.fillRect(sx+TILE,8*TILE,TILE+4,6);
   }
 }
 
@@ -1548,6 +1590,26 @@ function drawCloseupPainting3(ctx){
   ctx.fillStyle="#cc8820";ctx.fillRect(70,60,18,20);ctx.fillStyle="#ddaa30";ctx.fillRect(73,63,12,14);
   ctx.fillStyle="#dda030";ctx.fillRect(52,65,14,15);ctx.fillStyle="#eebb40";ctx.fillRect(55,68,8,10);
 }
+function drawCloseupPainting4(ctx){
+  ctx.fillStyle="#1a1420";ctx.fillRect(0,0,128,128);
+  ctx.fillStyle="#3a2a1a";ctx.fillRect(10,10,108,108);ctx.fillStyle="#1a2a1a";ctx.fillRect(14,14,100,100);
+  // Green landscape with trees
+  ctx.fillStyle="#1a3a1a";ctx.fillRect(14,60,100,54);
+  ctx.fillStyle="#2a5a2a";ctx.fillRect(30,35,20,40);ctx.fillStyle="#1a4a1a";ctx.fillRect(35,30,10,10);
+  ctx.fillStyle="#2a5a2a";ctx.fillRect(75,40,18,35);ctx.fillStyle="#1a4a1a";ctx.fillRect(79,34,10,10);
+  ctx.fillStyle="#3a2a1a";ctx.fillRect(37,55,6,20);ctx.fillRect(81,55,6,20);
+  ctx.fillStyle="#4488bb";ctx.fillRect(14,14,100,30);
+  ctx.fillStyle="#eedd88";ctx.fillRect(90,18,10,10);
+}
+function drawCloseupPainting5(ctx){
+  ctx.fillStyle="#1a1420";ctx.fillRect(0,0,128,128);
+  ctx.fillStyle="#4a3a2a";ctx.fillRect(10,10,108,108);ctx.fillStyle="#2a1a0a";ctx.fillRect(14,14,100,100);
+  // Amber/gold abstract swirls
+  ctx.fillStyle="#cc9930";ctx.fillRect(30,30,30,30);ctx.fillStyle="#ddb040";ctx.fillRect(35,35,20,20);
+  ctx.fillStyle="#cc9930";ctx.fillRect(65,55,35,35);ctx.fillStyle="#ddb040";ctx.fillRect(70,60,25,25);
+  ctx.fillStyle="#aa7720";ctx.fillRect(40,70,20,20);ctx.fillStyle="#bb8830";ctx.fillRect(44,74,12,12);
+  ctx.fillStyle="#cc9930";ctx.fillRect(20,50,15,30);ctx.fillStyle="#ddb040";ctx.fillRect(23,55,9,20);
+}
 function drawCloseupVase(ctx){
   ctx.fillStyle="#1a1420";ctx.fillRect(0,0,128,128);
   ctx.fillStyle="#f0ece0";ctx.fillRect(44,20,40,8);ctx.fillRect(38,28,52,12);
@@ -1628,50 +1690,48 @@ function drawCloseupNotebook(ctx){
   ctx.textAlign="left";
 }
 function drawCloseupCamera(ctx){
-  ctx.fillStyle="#0a0a0a";ctx.fillRect(0,0,128,128);
-  // Monitor frame
-  ctx.fillStyle="#333";ctx.fillRect(8,8,112,96);
-  ctx.fillStyle="#222";ctx.fillRect(12,12,104,88);
-  // Screen content — grainy dark footage
-  ctx.fillStyle="#0a1a0a";ctx.fillRect(14,14,100,84);
-  // Doorway view
-  ctx.fillStyle="#1a2a1a";ctx.fillRect(40,30,48,60);
-  ctx.fillStyle="#0a140a";ctx.fillRect(44,34,40,52);
-  // Door frame
-  ctx.fillStyle="#2a3a2a";ctx.fillRect(40,30,4,60);ctx.fillRect(84,30,4,60);ctx.fillRect(40,30,48,4);
-  // Scan lines
-  for(var i=14;i<98;i+=3){ctx.fillStyle="rgba(0,255,0,0.04)";ctx.fillRect(14,i,100,1);}
-  // Timestamp text
-  ctx.fillStyle="#00ff00";ctx.font="6px monospace";ctx.textAlign="left";
-  ctx.fillText("CAM-03 BATH ENTRANCE",16,24);
-  ctx.fillText("22:47:31",80,94);
-  // Static noise dots
-  for(var j=0;j<30;j++){ctx.fillStyle="rgba(0,255,0,0.15)";ctx.fillRect(14+Math.random()*100,14+Math.random()*84,2,1);}
-  // "REC" indicator
-  ctx.fillStyle="#ff0000";ctx.fillRect(16,90,4,4);
-  ctx.fillStyle="#ff0000";ctx.font="5px monospace";ctx.fillText("REC",22,94);
+  ctx.fillStyle="#3a3040";ctx.fillRect(0,0,128,128);
+  // Wall texture
+  for(var i=0;i<128;i+=16)for(var j=0;j<128;j+=16){ctx.fillStyle=((i+j)/16)%2===0?"#3a3040":"#383040";ctx.fillRect(i,j,16,16);}
+  // Mounting bracket on wall
+  ctx.fillStyle="#555";ctx.fillRect(90,30,12,68);
+  ctx.fillStyle="#666";ctx.fillRect(92,34,8,60);
+  // Camera body — horizontal cylinder facing left
+  ctx.fillStyle="#444";ctx.fillRect(30,44,64,40);
+  ctx.fillStyle="#555";ctx.fillRect(34,48,56,32);
+  ctx.fillStyle="#3a3a3a";ctx.fillRect(30,44,8,40);
+  // Lens
+  ctx.fillStyle="#222";ctx.fillRect(22,52,12,24);
+  ctx.fillStyle="#111";ctx.fillRect(24,56,8,16);
+  ctx.fillStyle="#0a3a5a";ctx.fillRect(26,60,6,8);
+  ctx.fillStyle="rgba(100,200,255,0.3)";ctx.fillRect(27,62,4,4);
+  // Red LED
+  ctx.fillStyle="#ff0000";ctx.fillRect(36,50,4,4);
+  // Label
+  ctx.fillStyle="#aaa";ctx.font="5px monospace";ctx.textAlign="center";
+  ctx.fillText("CAM-03",64,100);
+  ctx.fillText("BATH ENTRANCE",64,110);
   ctx.textAlign="left";
-  // Monitor stand
-  ctx.fillStyle="#444";ctx.fillRect(48,104,32,8);
-  ctx.fillStyle="#333";ctx.fillRect(54,112,20,12);
-  ctx.fillStyle="#444";ctx.fillRect(44,122,40,4);
 }
 
 // -- Examinable objects --
 const L2_EXAMINABLES=[
-  {key:"painting1",x:6*TILE,y:1*TILE,room:"hall",label:"PAINTING - Red Abstract",drawCloseup:drawCloseupPainting1,description:"A bold abstract painting in crimson. The heavy gilded frame could certainly do damage. Signed 'VP Mauve — Personal Collection'."},
-  {key:"painting2",x:9*TILE,y:1*TILE,room:"hall",label:"PAINTING - Blue Landscape",drawCloseup:drawCloseupPainting2,description:"A serene blue landscape. The frame is lightweight birch. Unlikely to be a weapon."},
-  {key:"painting3",x:15*TILE,y:1*TILE,room:"hall",label:"PAINTING - Golden Still Life",drawCloseup:drawCloseupPainting3,description:"A still life of golden fruit. The canvas is old but well-preserved. Nothing suspicious."},
+  {key:"painting0",x:3*TILE,y:2*TILE,room:"hall",label:"PAINTING - Green Landscape",drawCloseup:drawCloseupPainting4,description:"A peaceful green landscape with tall trees and a golden sun. The frame is simple oak. Nothing unusual."},
+  {key:"painting1",x:6*TILE,y:2*TILE,room:"hall",label:"PAINTING - Red Abstract",drawCloseup:drawCloseupPainting1,description:"A bold abstract painting in crimson. The heavy gilded frame could certainly do damage. Signed 'VP Mauve — Personal Collection'."},
+  {key:"painting2",x:9*TILE,y:2*TILE,room:"hall",label:"PAINTING - Blue Landscape",drawCloseup:drawCloseupPainting2,description:"A serene blue landscape. The frame is lightweight birch. Unlikely to be a weapon."},
+  {key:"painting4",x:12*TILE,y:2*TILE,room:"hall",label:"PAINTING - Amber Abstract",drawCloseup:drawCloseupPainting5,description:"An abstract composition in amber and gold. Swirling shapes that seem to shimmer. The artist is unknown."},
+  {key:"painting3",x:15*TILE,y:2*TILE,room:"hall",label:"PAINTING - Golden Still Life",drawCloseup:drawCloseupPainting3,description:"A still life of golden fruit. The canvas is old but well-preserved. Nothing suspicious."},
   {key:"vase",x:2*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Porcelain Vase",drawCloseup:drawCloseupVase,description:"A rare Ming dynasty porcelain vase. Surprisingly heavy. It could certainly be used as a weapon."},
   {key:"frame",x:3*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Heavy Painting Frame",drawCloseup:drawCloseupFrame,description:"An antique painting with an unusually heavy iron frame. Could deliver a lethal blow. Wait — there's a thread caught on the frame... it's mauve-colored, matching VP Mauve's outfit."},
   {key:"statue",x:4*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Abstract Statue",drawCloseup:drawCloseupStatue,description:"An abstract stone statue. Dense, heavy, with sharp angular edges. It's surprisingly solid for its size."},
   {key:"mirror",x:7*TILE,y:2*TILE,room:"bathroom",label:"ORNATE MIRROR",drawCloseup:drawCloseupMirror,description:"An ornate bathroom mirror. There's a small crack in the corner. You notice muddy footprints on the floor nearby."},
   {key:"counter",x:10*TILE,y:3*TILE,room:"giftshop",label:"GIFT SHOP COUNTER",drawCloseup:drawCloseupCounter,description:"The gift shop counter. The register is open and empty. Several items appear to have been knocked over recently."},
-  {key:"camera",x:16*TILE,y:3*TILE,room:"hall",label:"SECURITY MONITOR",drawCloseup:drawCloseupCamera,description:"Security footage of the bathroom entrance. The tape shows VP Mauve and Viscount Eminence entering and leaving the bathroom... but the Duchess of Vermillion never appears. She never went into the bathroom."},
-  {key:"notebook",x:4*TILE,y:8*TILE,room:"bathroom",label:"DETECTIVE'S NOTEBOOK",drawCloseup:drawCloseupNotebook,description:"A worn leather notebook with 'FORENSICS' stamped on the cover. It contains a blank deduction grid and space for clues. This could be very useful!"},
+  {key:"camera",x:18*TILE,y:4*TILE,room:"hall",label:"SECURITY CAMERA",drawCloseup:drawCloseupCamera,description:"A security camera mounted on the wall. Rewinding the footage shows VP Mauve and Viscount Eminence entering and leaving the bathroom... but the Duchess of Vermillion never appears. She never went into the bathroom. Too bad you can't see much else on here."},
+  {key:"notebook",x:16*TILE,y:10*TILE,room:"giftshop",label:"DETECTIVE'S NOTEBOOK",drawCloseup:drawCloseupNotebook,description:"A worn leather notebook with 'FORENSICS' stamped on the cover. It contains a blank deduction grid and space for clues. This could be very useful!"},
 ];
 
 function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel, apiKey, model }) {
+  useEffect(()=>{startMusicForLevel();},[]);
   const canvasRef=useRef(null);
   const portraitRef=useRef(null);
   const keysRef=useRef({});
@@ -1687,11 +1747,25 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [examining,setExamining]=useState(null);
   const [showClues,setShowClues]=useState(true);
   const [notebook,setNotebook]=useState({open:false,suspectWeapon:[["","",""],["","",""],["","",""]],suspectRoom:[["","",""],["","",""],["","",""]],roomWeapon:[["","",""],["","",""],["","",""]],autoMarks:{}});
-  const [discoveredClues,setDiscoveredClues]=useState([]);
+  const [discoveredClues,setDiscoveredCluesRaw]=useState([]);
+  const setDiscoveredClues=useCallback((updater)=>{
+    setDiscoveredCluesRaw(prev=>{
+      const next=typeof updater==="function"?updater(prev):updater;
+      if(next.length>prev.length){
+        try{const s=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.01,decay:0.15,sustain:0,release:0.1},volume:-10}).toDestination();s.triggerAttackRelease("E5","16n");setTimeout(()=>s.triggerAttackRelease("G5","16n"),100);setTimeout(()=>s.triggerAttackRelease("B5","16n"),200);}catch{}
+      }
+      return next;
+    });
+  },[]);
   const [result,setResult]=useState(null);
   const [hasNotebook,setHasNotebook]=useState(false);
   const [sayingBye,setSayingBye]=useState(false);
+  const pendingCluesRef = useRef([]);
+  
   const { typingText, startTyping, stopTyping } = useTypewriter();
+  const queueClue = useCallback((clue) => {
+    if (!pendingCluesRef.current.includes(clue)) pendingCluesRef.current.push(clue);
+  }, []);
   const greetedNpcRef = useRef({});
   const [accusation,setAccusation]=useState(null);// null | {step:"who"|"what"|"where", who:null, what:null, where:null}
   const inputRef=useRef(null);
@@ -1723,6 +1797,19 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   useEffect(()=>{examiningRef.current=examining;},[examining]);
   useEffect(()=>{notebookRef.current=notebook.open;},[notebook.open]);
   useEffect(()=>{hasNotebookRef.current=hasNotebook;},[hasNotebook]);
+
+  // Flush pending clues when interactions end
+  useEffect(() => {
+    if (!chatOpen && !examining && pendingCluesRef.current.length > 0) {
+      const newClues = pendingCluesRef.current.filter(c => !discoveredClues.includes(c));
+      pendingCluesRef.current = [];
+      if (newClues.length > 0) {
+        setDiscoveredClues(prev => [...prev, ...newClues]);
+        
+        setTimeout(() => {}, 2500);
+      }
+    }
+  }, [chatOpen, examining]);
 
   // Pre-set lead detective's greeting for subsequent talks
   useEffect(()=>{
@@ -1764,16 +1851,17 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
             if(npc.key==="mauve")greeting="Hmph. I'm a very busy woman. What do you want?";
             if(npc.key==="viscount")greeting="*adjusts monocle* Ah, the detective. How tedious.";
             if(npc.key==="duchess")greeting="Oh my! A real detective? How thrilling!";
-            if(npc.key==="cop")greeting="Detective Andrew. Got a theory? You can chat with me, or when you're ready, hit the MAKE ACCUSATION button.";
+            if(npc.key==="cop")greeting=discoveredClues.length>=7?"Detective Andrew. Looks like you have all the clues you need to solve this case! When you're ready, hit the MAKE ACCUSATION button.":"Detective Andrew. I think you need more clues still. Keep investigating and come back when you're ready.";
             if(npc.key==="lead")greeting="Need more details, detective? Ask away.";
             if(npc.key==="soothsayer")greeting="The spirits whisper to me... One of the three suspects speaks only lies. But the mists obscure which one... I also sense that each suspect was in a separate room, each with a separate object, at the time of the murder. I told all of this to the forensics detective... ask him for his notes. Trust your wits, detective.";
-            if(npc.key==="forensics")greeting="I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three. Oh, and I seem to have dropped my notebook somewhere... I think it was in the bathroom.";
+            if(npc.key==="forensics")greeting="I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three. Oh, and I seem to have dropped my notebook somewhere in the museum... if you find it, it could be useful.";
             setMessages(prev=>{
+              if(npc.key==="cop"){return{...prev,cop:[{role:"assistant",text:greeting},...prev.cop.slice(1)]};}
               if(prev[npc.key].length>0)return prev;
               return{...prev,[npc.key]:[{role:"assistant",text:greeting}]};
             });
             if(!greetedNpcRef.current[npc.key]){greetedNpcRef.current[npc.key]=true;startTyping(npc.key,greeting);}
-            if(npc.key==="soothsayer") setDiscoveredClues(prev => { let c=[...prev]; if(!c.includes("The Soothsayer senses one suspect is lying  the others tell the truth."))c.push("The Soothsayer senses one suspect is lying  the others tell the truth."); if(!c.includes("The Soothsayer senses each suspect was in a separate room with a separate object."))c.push("The Soothsayer senses each suspect was in a separate room with a separate object."); return c; });
+            if(npc.key==="soothsayer"){ queueClue("One suspect is lying  the others tell the truth."); queueClue("Each suspect was in a separate room with a separate object."); }
             foundNpc=true;
             break;
           }
@@ -1783,9 +1871,9 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
           for(const ex of roomExams){
             if(isFacing(ex.x,ex.y)){
               setExamining(ex);
-              if(ex.key==="notebook"){setHasNotebook(true);setDiscoveredClues(prev=>prev.includes("Found the forensics detective's notebook — a deduction grid to track suspects, weapons, and rooms.")?prev:[...prev,"Found the forensics detective's notebook — a deduction grid to track suspects, weapons, and rooms."]);}
-              if(ex.key==="frame") setDiscoveredClues(prev => prev.includes("A mauve thread was found on the painting frame — VP Mauve had the painting.") ? prev : [...prev, "A mauve thread was found on the painting frame — VP Mauve had the painting."]);
-              if(ex.key==="camera") setDiscoveredClues(prev => prev.includes("Security footage shows the Duchess of Vermillion never entered the bathroom.") ? prev : [...prev, "Security footage shows the Duchess of Vermillion never entered the bathroom."]);
+              if(ex.key==="notebook"){setHasNotebook(true);}
+              if(ex.key==="frame") queueClue("A mauve thread was found on the painting frame — VP Mauve had the painting.");
+              if(ex.key==="camera") queueClue("Security footage shows the Duchess of Vermillion never entered the bathroom.");
               break;
             }
           }
@@ -1932,10 +2020,16 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
             if(hitBox(tx,ty,3*TILE,3*TILE,2*TILE,TILE))return false;
             // Sinks (right pair)
             if(hitBox(tx,ty,7*TILE,3*TILE,2*TILE,TILE))return false;
-            // Stalls
-            if(hitBox(tx,ty,2*TILE,7*TILE,3*TILE,3*TILE))return false;
-            if(hitBox(tx,ty,6*TILE,7*TILE,3*TILE,3*TILE))return false;
-            if(hitBox(tx,ty,10*TILE,7*TILE,3*TILE,3*TILE))return false;
+            // Stall walls (sides + back, open front entrance)
+            for(let i=0;i<3;i++){
+              const sx=2*TILE+i*4*TILE;
+              // Left wall of stall
+              if(hitBox(tx,ty,sx,7*TILE,4,3*TILE))return false;
+              // Right wall of stall
+              if(hitBox(tx,ty,sx+3*TILE-4,7*TILE,4,3*TILE))return false;
+              // Back wall + toilet
+              if(hitBox(tx,ty,sx,8*TILE,3*TILE,2*TILE))return false;
+            }
           }
           if(curRoom==="giftshop"){
             // Counter
@@ -1950,16 +2044,19 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         if(walkable(nx,ny)){p.x=nx;p.y=ny;}
         else if(walkable(nx,p.y)){p.x=nx;}
         else if(walkable(p.x,ny)){p.y=ny;}
-        // Door transition
+        // Door transition — must be facing the door
         const doors=L2_ROOM_DOORS[curRoom];
         for(const door of doors){
           const dcx=door.col*TILE+TILE/2,dcy=door.row*TILE+TILE/2;
           const pcx=p.x+TILE/2,pcy=p.y+TILE/2;
           if(Math.hypot(pcx-dcx,pcy-dcy)<TILE*1.2){
-            roomRef.current=door.target;
-            setRoom(door.target);
-            p.x=door.spawnX;p.y=door.spawnY;
-            break;
+            const facing=(door.col===0&&p.dir==="left")||(door.col===L2_COLS-1&&p.dir==="right")||(door.row===L2_ROWS-1&&p.dir==="down")||(door.row===0&&p.dir==="up");
+            if(facing){
+              roomRef.current=door.target;
+              setRoom(door.target);
+              p.x=door.spawnX;p.y=door.spawnY;
+              break;
+            }
           }
         }
       }
@@ -1990,9 +2087,9 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
       if(cr==="hall")drawEntryHall(ctx);
       else if(cr==="bathroom")drawBathroom(ctx);
       else drawGiftShop(ctx);
-      // Draw notebook on bathroom floor if not picked up
-      if(!hasNotebookRef.current&&cr==="bathroom"){
-        const nbx=4*TILE,nby=8*TILE;
+      // Draw notebook on giftshop floor if not picked up
+      if(!hasNotebookRef.current&&cr==="giftshop"){
+        const nbx=16*TILE,nby=10*TILE;
         ctx.fillStyle="#5a3a1a";ctx.fillRect(nbx+8,nby+6,16,20);
         ctx.fillStyle="#6b4a2a";ctx.fillRect(nbx+10,nby+8,12,16);
         ctx.fillStyle="#4a2a0a";ctx.fillRect(nbx+8,nby+6,3,20);
@@ -2122,7 +2219,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style speech.`;
 
 BACKSTORY: You graduated top of your class in forensic science and have been with the department for 12 years. This is the most high-profile case you've worked. The victim, Lord Ashworth, was killed by blunt force trauma. You've cataloged three potential weapons found at the scene: a rare porcelain vase (surprisingly heavy), an antique painting in a heavy iron frame (donated by VP Mauve), and an abstract stone statue (dense and angular). Any of the three could have delivered a fatal blow. Each weapon was found in a different room.
 
-PERSONALITY: Precise, scientific, methodical. You speak in facts and evidence. You get excited about forensic details. You are slightly awkward socially but brilliant at your job. You are frustrated that the detectives don't appreciate the nuances of forensic analysis. You dropped your notebook somewhere in the bathroom and you're embarrassed about it. If the player mentions returning your notebook, tell them to keep it — it has a useful deduction grid they should use to track the suspects, weapons, and rooms. If asked how to use it, explain: each row and column represents a pairing, tap to cycle through blank, question mark, X (eliminated), and checkmark (confirmed). When you confirm a match with a checkmark, the rest of that row and column automatically gets X'd out.
+PERSONALITY: Precise, scientific, methodical. You speak in facts and evidence. You get excited about forensic details. You are slightly awkward socially but brilliant at your job. You are frustrated that the detectives don't appreciate the nuances of forensic analysis. You dropped your notebook somewhere in the museum and you're embarrassed about it. You don't remember where you left it. If the player mentions finding or returning your notebook, tell them to keep it — it has a useful deduction grid they should use to track the suspects, weapons, and rooms. If asked how to use it, explain: each row and column represents a pairing, tap to cycle through blank, question mark, X (eliminated), and checkmark (confirmed). When you confirm a match with a checkmark, the rest of that row and column automatically gets X'd out.
 
 You can describe the weapons in detail when asked. You know the victim's cause of death (blunt force trauma) and time of death (approximately 7:45 PM). Keep answers under 2-3 sentences. 8-bit RPG style speech.`;
     }else if(talkingTo==="cop"){
@@ -2143,11 +2240,11 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
       // Record suspect statements as clues when they actually say them
       const rl=reply.toLowerCase();
       if(talkingTo==="mauve"&&rl.includes("vase")&&rl.includes("viscount"))
-        setDiscoveredClues(prev=>prev.includes("VP Mauve's statement: \"Viscount Eminence brought a rare vase.\"")?prev:[...prev,"VP Mauve's statement: \"Viscount Eminence brought a rare vase.\""]);
+        queueClue("VP Mauve's statement: \"Viscount Eminence brought a rare vase.\"");
       if(talkingTo==="viscount"&&rl.includes("statue")&&rl.includes("missing"))
-        setDiscoveredClues(prev=>prev.includes("Viscount's statement: \"The abstract statue was missing from the entry hall.\"")?prev:[...prev,"Viscount's statement: \"The abstract statue was missing from the entry hall.\""]);
+        queueClue("Viscount's statement: \"The abstract statue was missing from the entry hall.\"");
       if(talkingTo==="duchess"&&rl.includes("viscount")&&rl.includes("entry hall"))
-        setDiscoveredClues(prev=>prev.includes("Duchess's statement: \"Viscount Eminence was in the entry hall around the time of the murder.\"")?prev:[...prev,"Duchess's statement: \"Viscount Eminence was in the entry hall around the time of the murder.\""]);
+        queueClue("Duchess's statement: \"Viscount Eminence was in the entry hall around the time of the murder.\"");
     }catch{
       setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:"*radio static* ...say again?"}]}));startTyping(talkingTo,"*radio static* ...say again?");
     }
@@ -2253,7 +2350,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
                   <tr key={"r"+r}>
                     <td style={{color:"#e8d070",fontSize:9,paddingRight:4,textAlign:"right",fontFamily:FONT}}>{ROOM_LABELS[r]}</td>
                     {[0,1,2].map(c=><td key={c} onClick={()=>toggleCell("roomWeapon",r,c)} style={{width:NB_CELL,height:NB_CELL,border:"1px solid #3a3060",background:"#1a1420",textAlign:"center",cursor:"pointer",fontSize:16,color:cellColor(notebook.roomWeapon[r][c]),fontFamily:"sans-serif",userSelect:"none"}}>{cellDisp(notebook.roomWeapon[r][c])}</td>)}
-                    <td colSpan={4}/>
+                    {r===1?<td colSpan={4} style={{textAlign:"center",paddingLeft:8}}><button onClick={()=>setNotebook(p=>({...p,suspectWeapon:[["","",""],["","",""],["","",""]],suspectRoom:[["","",""],["","",""],["","",""]],roomWeapon:[["","",""],["","",""],["","",""]],autoMarks:{}}))} style={{fontFamily:FONT,fontSize:7,padding:"6px 10px",background:"transparent",color:"#ff6644",border:"1px solid #ff6644",borderRadius:4,cursor:"pointer"}}>RESET</button></td>:<td colSpan={4}/>}
                   </tr>
                 ))}
               </tbody>
@@ -2275,21 +2372,15 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
             )}
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-            <button onClick={()=>setNotebook(p=>({...p,suspectWeapon:[["","",""],["","",""],["","",""]],suspectRoom:[["","",""],["","",""],["","",""]],roomWeapon:[["","",""],["","",""],["","",""]],autoMarks:{}}))} style={{fontFamily:FONT,fontSize:8,padding:"10px 14px",background:"transparent",color:"#ff6644",border:"1px solid #ff6644",borderRadius:4,cursor:"pointer",minHeight:44}}>RESET</button>
             <button onClick={()=>setNotebook(p=>({...p,open:false}))} style={{fontFamily:FONT,fontSize:8,padding:"10px 14px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer",minHeight:44}}>BACK TO MAP</button>
           </div>
         </div>
       )}
-      {!notebook.open&&<canvas ref={canvasRef} width={L2_W} height={L2_H} style={{display:"block",imageRendering:"pixelated",width:"100%",borderRadius:3}} />}
+      <canvas ref={canvasRef} width={L2_W} height={L2_H} style={{display:notebook.open?"none":"block",imageRendering:"pixelated",width:"100%",borderRadius:3}} />
       </div>
       <div style={{color:"#8a8a7a",fontSize:10,marginTop:6,textAlign:"center"}}>
         {chatOpen||examining?"":nearEntity?"TAP A TO TALK":nearExaminable?"TAP A TO EXAMINE":"D-PAD MOVE · A INTERACT · C CLUES"}
       </div>
-
-      {/* Notebook icon — positioned above touch controls */}
-      {hasNotebook&&!chatOpen&&!examining&&!result&&!cutsceneRef.current&&(
-        <button onClick={()=>setNotebook(p=>({...p,open:true}))} style={{position:"fixed",bottom:180,left:16,zIndex:100,width:48,height:48,background:"#1a1420",border:"2px solid #e8d070",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,padding:0,boxShadow:"0 0 8px rgba(232,208,112,0.3)",touchAction:"none"}}>📓</button>
-      )}
 
       {/* Clue panel */}
       {showClues&&!chatOpen&&!notebook.open&&(
@@ -2379,7 +2470,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
           </div>
         </div>
       )}
-      <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={true} showCloseBtn={false} hidden={chatOpen||!!examining||!!result||notebook.open} />
+      <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={!notebook.open} showCloseBtn={false} hidden={chatOpen||!!examining||!!result} showNotebook={hasNotebook} onNotebookToggle={()=>setNotebook(p=>({...p,open:!p.open}))} />
     </div>
   );
 }
@@ -2500,7 +2591,7 @@ export default function GameMobile() {
         display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"
       }}>
-        <div style={{fontSize:16,marginBottom:30}}>⚔ Guard Riddle RPG ⚔</div>
+        <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
         <div style={{fontSize:9,color:"#a89cc8",marginBottom:20,lineHeight:"1.8"}}>{warmStatus}</div>
         <div style={{fontSize:24,animation:"spin 1.5s linear infinite"}}>⚔</div>
         <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
@@ -2514,7 +2605,7 @@ export default function GameMobile() {
         display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"
       }}>
-        <div style={{fontSize:16,marginBottom:30}}>⚔ Guard Riddle RPG ⚔</div>
+        <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
         <div style={{fontSize:9,marginBottom:20,color:"#a89cc8",maxWidth:400,lineHeight:"1.8"}}>
           Choose an AI model for NPC dialogue.
         </div>
@@ -2574,13 +2665,13 @@ export default function GameMobile() {
   if (level === null) return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"}}>
       {muteBtn}
-      <div style={{fontSize:16,marginBottom:30}}>⚔ Guard Riddle RPG ⚔</div>
+      <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
       <div style={{fontSize:9,marginBottom:24,color:"#a89cc8",lineHeight:"1.8"}}>Choose your adventure</div>
       <button onClick={()=>setLevel(1)} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #3a3060",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
         <span style={{color:"#70e870"}}>Level 1:</span> The Two Guards<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>A classic logic puzzle in a dark dungeon</span>
       </button>
       <button onClick={()=>setLevel(2)} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #5a4a30",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
-        <span style={{color:"#cc3030"}}>Level 2:</span> Murder at the Ashworth Gallery<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>Investigate a murder mystery with AI suspects</span>
+        <span style={{color:"#cc3030"}}>Level 2:</span> Murder at the Ashworth Gallery<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>Investigate a murder mystery at a museum</span>
       </button>
       <div style={{fontSize:6,marginTop:20,color:"#444"}}>{VERSION}</div>
     </div>
