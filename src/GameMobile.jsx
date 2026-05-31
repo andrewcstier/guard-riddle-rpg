@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.51";
+const VERSION = "Beta Version 0.52";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -2448,8 +2448,9 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
                     const correct=accusation.who==="Duchess of Vermillion"&&accusation.what==="Abstract Statue"&&s==="Gift Shop";
                     const resultText=correct?"CASE CLOSED! The Duchess of Vermillion... with the abstract statue... in the gift shop! Brilliant work, detective!":"That's not right, detective. Go back and check the evidence. You can try again when you're ready.";setMessages(prev=>({...prev,cop:[...prev.cop,{role:"assistant",text:resultText}]}));startTyping("cop",resultText);
                     setAccusation(null);
-                    if(correct)setTimeout(()=>{stopTyping();setChatOpen(false);setResult("win");},1500);
-                    else setTimeout(()=>{stopTyping();setChatOpen(false);setResult("wrong");},1500);
+                    const delay=Math.max(3000,resultText.length*25+1000);
+                    if(correct)setTimeout(()=>{stopTyping();setChatOpen(false);setResult("win");},delay);
+                    else setTimeout(()=>{stopTyping();setChatOpen(false);setResult("wrong");},delay);
                   }} style={{display:"block",width:"100%",marginBottom:4,padding:"10px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left",minHeight:44}}>{s}</button>
                 ))}
                 <button onClick={()=>setAccusation(null)} style={{marginTop:4,background:"transparent",border:"1px solid #666",borderRadius:3,color:"#666",fontFamily:FONT,fontSize:6,padding:"3px 6px",cursor:"pointer",width:"100%"}}>CANCEL</button>
