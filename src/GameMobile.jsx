@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.47";
+const VERSION = "Beta Version 0.48";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -1722,7 +1722,7 @@ const L2_EXAMINABLES=[
   {key:"painting4",x:12*TILE,y:2*TILE,room:"hall",label:"PAINTING - Amber Abstract",drawCloseup:drawCloseupPainting5,description:"An abstract composition in amber and gold. Swirling shapes that seem to shimmer. The artist is unknown."},
   {key:"painting3",x:15*TILE,y:2*TILE,room:"hall",label:"PAINTING - Golden Still Life",drawCloseup:drawCloseupPainting3,description:"A still life of golden fruit. The canvas is old but well-preserved. Nothing suspicious."},
   {key:"vase",x:2*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Porcelain Vase",drawCloseup:drawCloseupVase,description:"A rare Ming dynasty porcelain vase. Surprisingly heavy. It could certainly be used as a weapon."},
-  {key:"frame",x:3*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Heavy Painting Frame",drawCloseup:drawCloseupFrame,description:"An antique painting with an unusually heavy iron frame. Could deliver a lethal blow. Wait — there's a thread caught on the frame... it's mauve-colored, matching VP Mauve's outfit."},
+  {key:"frame",x:3*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Heavy Painting Frame",drawCloseup:drawCloseupFrame,description:"An antique painting with an unusually heavy iron frame. Could deliver a lethal blow.",description2:"Wait — there's a thread caught on the frame... it's mauve-colored, matching VP Mauve's outfit."},
   {key:"statue",x:4*TILE,y:3*TILE,room:"hall",label:"EVIDENCE - Abstract Statue",drawCloseup:drawCloseupStatue,description:"An abstract stone statue. Dense, heavy, with sharp angular edges. It's surprisingly solid for its size."},
   {key:"mirror",x:7*TILE,y:2*TILE,room:"bathroom",label:"ORNATE MIRROR",drawCloseup:drawCloseupMirror,description:"An ornate bathroom mirror. There's a small crack in the corner. You notice muddy footprints on the floor nearby."},
   {key:"counter",x:10*TILE,y:3*TILE,room:"giftshop",label:"GIFT SHOP COUNTER",drawCloseup:drawCloseupCounter,description:"The gift shop counter. The register is open and empty. Several items appear to have been knocked over recently."},
@@ -1745,6 +1745,8 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [nearEntity,setNearEntity]=useState(null);
   const [nearExaminable,setNearExaminable]=useState(null);
   const [examining,setExamining]=useState(null);
+  const [examPhase,setExamPhase]=useState(0);
+  const examinedItemsRef=useRef({});
   const [showClues,setShowClues]=useState(true);
   const [notebook,setNotebook]=useState({open:false,suspectWeapon:[["","",""],["","",""],["","",""]],suspectRoom:[["","",""],["","",""],["","",""]],roomWeapon:[["","",""],["","",""],["","",""]],autoMarks:{}});
   const [discoveredClues,setDiscoveredCluesRaw]=useState([]);
@@ -1870,9 +1872,9 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
           const roomExams=L2_EXAMINABLES.filter(ex=>ex.room===roomRef.current).filter(ex=>!(ex.key==="notebook"&&hasNotebookRef.current));
           for(const ex of roomExams){
             if(isFacing(ex.x,ex.y)){
-              setExamining(ex);
+              setExamining(ex);setExamPhase(0);
               if(ex.key==="notebook"){setHasNotebook(true);}
-              if(ex.key==="frame") queueClue("A mauve thread was found on the painting frame — VP Mauve had the painting.");
+              if(ex.key==="frame"&&!examinedItemsRef.current.frame) queueClue("A mauve thread was found on the painting frame — VP Mauve had the painting.");
               if(ex.key==="camera") queueClue("Security footage shows the Duchess of Vermillion never entered the bathroom.");
               break;
             }
@@ -2461,12 +2463,16 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
       )}
 
       {examining&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:20}} onClick={()=>setExamining(null)}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:20}} onClick={()=>{if(examining.description2)examinedItemsRef.current[examining.key]=true;setExamining(null);}}>
           <div style={{background:"#1a1420",border:"3px solid #e8d070",borderRadius:8,padding:16,textAlign:"center",maxWidth:340,width:"90%"}} onClick={e=>e.stopPropagation()}>
             <canvas ref={examCanvasRef} width={128} height={128} style={{imageRendering:"pixelated",border:"2px solid #5a4a30",borderRadius:4,display:"block",margin:"0 auto 8px",width:100,height:100}} />
             <div style={{color:"#e8d070",fontSize:9,marginBottom:6,fontFamily:FONT}}>{examining.label}</div>
-            <div style={{color:"#c8b880",fontSize:7,lineHeight:"14px",marginBottom:10,fontFamily:FONT,maxWidth:300,margin:"0 auto 10px"}}>{examining.description}</div>
-            <button onClick={()=>setExamining(null)} style={{fontFamily:FONT,fontSize:9,padding:"12px 20px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer",minHeight:44}}>CLOSE</button>
+            <div style={{color:"#c8b880",fontSize:7,lineHeight:"14px",marginBottom:10,fontFamily:FONT,maxWidth:300,margin:"0 auto 10px"}}>{examPhase===1&&examining.description2?examining.description2:examining.description}</div>
+            {examining.description2&&!examinedItemsRef.current[examining.key]&&examPhase===0?(
+              <button onClick={()=>setExamPhase(1)} style={{fontFamily:FONT,fontSize:9,padding:"12px 20px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer",minHeight:44}}>LOOK CLOSER...</button>
+            ):(
+              <button onClick={()=>{if(examining.description2)examinedItemsRef.current[examining.key]=true;setExamining(null);}} style={{fontFamily:FONT,fontSize:9,padding:"12px 20px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer",minHeight:44}}>CLOSE</button>
+            )}
           </div>
         </div>
       )}
