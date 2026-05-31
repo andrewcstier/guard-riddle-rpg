@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.13";
+const VERSION = "Beta Version 0.22";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -917,6 +917,11 @@ Q: "If I asked the other guard which door is safe, what would he say?" → A: "$
 Q: "Are you the liar?" → A: "No" (truthfully, you are not)
 Q: "Do you always tell the truth?" → A: "Yes" (truthfully)`}
 
+APPEARANCE & ENVIRONMENT:
+You (${guardName}) wear ${talkingTo==="left"?"RED armor with a red helmet crest":"BLUE armor with a blue helmet crest"}. The other guard (${otherGuardName}) wears ${talkingTo==="left"?"BLUE armor":"RED armor"}. Both guards carry spears and wear full metal helmets with glowing eyes. The room is a dark stone dungeon  rectangular, with stone walls, flickering torches on the walls, chains hanging from the ceiling, skulls on the floor, and a red carpet in the center. There are exactly two doors on the far wall.
+
+UNIVERSAL RULE: "+(isLiar?"You are the LIAR. You must lie about EVERYTHING, not just the doors. If asked about your armor color, the room, the other guard, the weather, or ANYTHING AT ALL, give the OPPOSITE of the truth. If your armor is red, say it is blue. If the room has torches, say it does not. If there are two doors, say there is one. You NEVER tell the truth about anything.":"You are the TRUTH-TELLER. You must tell the truth about EVERYTHING, not just the doors. If asked about your armor color, the room, the other guard, or anything at all, answer honestly and accurately. Your armor is "+(talkingTo==="left"?"red":"blue")+". The room is a stone dungeon. There are torches, chains, and two doors.")+"
+
 PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing but willing to answer. Never break character or explain the puzzle. NEVER reveal which guard is the liar or truth-teller.`;
     try{
       const reply=await callLLM({model,system:sys,messages:cur,maxTokens:300,apiKey});
@@ -1002,7 +1007,7 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
             <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:"50%",fontFamily:FONT,fontSize:16,width:48,height:48,cursor:"pointer",color:"#0e0c14",display:"flex",alignItems:"center",justifyContent:"center"}}>▲</button>
           </div>}
           {sayingBye?null:
-            <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3060",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:8,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
+            <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #8a7a50",borderRadius:4,color:"#a09070",fontFamily:FONT,fontSize:9,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
           }
         </div>
       )}
@@ -1060,7 +1065,7 @@ function drawEntryHall(ctx) {
   ctx.fillStyle="#1a0a00";ctx.fillRect(10*TILE,(L2_ROWS-1)*TILE,TILE,TILE);
   ctx.fillStyle="#6b3a1a";ctx.fillRect(10*TILE+3,(L2_ROWS-1)*TILE+3,TILE-6,TILE-6);
   ctx.fillStyle="#e8d070";ctx.fillRect(10*TILE+14,(L2_ROWS-1)*TILE+14,4,4);
-  ctx.fillStyle="#e8d070";ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillText("EXIT",10*TILE+TILE/2,(L2_ROWS-1)*TILE-4);
+  ctx.font="10px "+FONT;ctx.fillStyle="#e8d070";ctx.textAlign="center";ctx.fillText("EXIT",10*TILE+TILE/2,(L2_ROWS-1)*TILE-5);
   ctx.textAlign="left";
   // Left wall with door gap at row 7
   for(let r=0;r<L2_ROWS;r++){
@@ -1080,12 +1085,11 @@ function drawEntryHall(ctx) {
   ctx.fillStyle="#1a0a00";ctx.fillRect((L2_COLS-1)*TILE,7*TILE,TILE,TILE);
   ctx.fillStyle="#6b3a1a";ctx.fillRect((L2_COLS-1)*TILE+3,7*TILE+3,TILE-6,TILE-6);
   ctx.fillStyle="#e8d070";ctx.fillRect((L2_COLS-1)*TILE+6,7*TILE+14,4,4);
-  // Door labels
-  ctx.fillStyle="#e8d070";ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillText("BATH",TILE/2,7*TILE-4);
-  ctx.fillText("GIFT",((L2_COLS-1)*TILE)+TILE/2,7*TILE-4);
+  // Door labels — with dark background for readability
+  ctx.font="10px "+FONT;ctx.fillStyle="#cc8830";ctx.textAlign="left";ctx.fillText("BATH",4,7*TILE-5);ctx.textAlign="right";ctx.fillText("GIFT",(L2_COLS-1)*TILE+TILE-4,7*TILE-5);
   ctx.textAlign="left";
   // Room label
-  ctx.fillStyle="#6b5040";ctx.font="13px "+FONT;ctx.textAlign="center";ctx.fillText("ASHWORTH GALLERY — ENTRY HALL",L2_W/2,2*TILE-4);
+  ctx.fillStyle="rgba(0,0,0,0.6)";ctx.fillRect(L2_W/2-180,4,360,16);ctx.fillStyle="#f0e8d0";ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillText("ASHWORTH GALLERY  ENTRY HALL",L2_W/2,16);
   ctx.textAlign="left";
   // Paintings on top wall
   [[3,1,"#30aa60"],[6,1,"#cc3030"],[9,1,"#3060cc"],[12,1,"#cc9930"],[15,1,"#dda030"]].forEach(([c,r,col])=>{
@@ -1133,7 +1137,7 @@ function drawEntryHall(ctx) {
   ctx.fillStyle="#cc6644";ctx.fillRect(3*TILE+11,3*TILE+7,10,14);
   ctx.fillStyle="#556";ctx.fillRect(4*TILE+6,3*TILE+8,14,14);
   ctx.fillStyle="#667";ctx.fillRect(4*TILE+10,3*TILE+4,6,8);
-  ctx.fillStyle="#e8d070";ctx.font="10px "+FONT;ctx.textAlign="center";ctx.fillText("EVIDENCE",3.5*TILE,3*TILE-2);ctx.textAlign="left";
+  ctx.font="10px "+FONT;ctx.textAlign="center";ctx.fillStyle="#30a050";ctx.fillText("EVIDENCE",3.5*TILE,3*TILE-2);ctx.textAlign="left";
   // Security monitor
   ctx.fillStyle="#444";ctx.fillRect(16*TILE+4,3*TILE+2,24,20);
   ctx.fillStyle="#0a1a0a";ctx.fillRect(16*TILE+6,3*TILE+4,20,14);
@@ -1167,10 +1171,10 @@ function drawBathroom(ctx) {
   ctx.fillStyle="#6b3a1a";ctx.fillRect((L2_COLS-1)*TILE+3,7*TILE+3,TILE-6,TILE-6);
   ctx.fillStyle="#e8d070";ctx.fillRect((L2_COLS-1)*TILE+6,7*TILE+14,4,4);
   // Door label
-  ctx.fillStyle="#e8d070";ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillText("EXIT",(L2_COLS-1)*TILE+TILE/2,7*TILE-4);
+  ctx.font="10px "+FONT;ctx.fillStyle="#e8d070";ctx.textAlign="right";ctx.fillText("EXIT",(L2_COLS-1)*TILE+TILE-4,7*TILE-5);
   ctx.textAlign="left";
   // Room label
-  ctx.fillStyle="#88aabb";ctx.font="13px "+FONT;ctx.textAlign="center";ctx.fillText("BATHROOM",L2_W/2,2*TILE-4);
+  ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillStyle="#3a6a8a";ctx.fillText("BATHROOM",L2_W/2,TILE+10);
   ctx.textAlign="left";
   // Sinks
   ctx.fillStyle="#ddd";ctx.fillRect(3*TILE,3*TILE+8,TILE*2,TILE-8);
@@ -1215,12 +1219,12 @@ function drawGiftShop(ctx) {
   ctx.fillStyle="#6b3a1a";ctx.fillRect(3,7*TILE+3,TILE-6,TILE-6);
   ctx.fillStyle="#e8d070";ctx.fillRect(22,7*TILE+14,4,4);
   // Door label
-  ctx.fillStyle="#e8d070";ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillText("EXIT",TILE/2,7*TILE-4);
+  ctx.font="10px "+FONT;ctx.fillStyle="#e8d070";ctx.textAlign="left";ctx.fillText("EXIT",4,7*TILE-5);
   ctx.textAlign="left";
   // Right wall (solid)
   for(let r=0;r<L2_ROWS;r++){ctx.fillStyle="#7b5a40";ctx.fillRect((L2_COLS-1)*TILE,r*TILE,TILE,TILE);ctx.fillStyle="#6a4a30";ctx.fillRect((L2_COLS-1)*TILE+2,r*TILE+2,TILE-4,TILE-4);}
   // Room label
-  ctx.fillStyle="#8b6a3a";ctx.font="13px "+FONT;ctx.textAlign="center";ctx.fillText("GIFT SHOP",L2_W/2,2*TILE-4);
+  ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillStyle="#6a4a2a";ctx.fillText("GIFT SHOP",L2_W/2,TILE+10);
   ctx.textAlign="left";
   // Counter
   ctx.fillStyle="#8b6a3a";ctx.fillRect(9*TILE,3*TILE,TILE*4,TILE);
@@ -1642,7 +1646,7 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [nearEntity,setNearEntity]=useState(null);
   const [nearExaminable,setNearExaminable]=useState(null);
   const [examining,setExamining]=useState(null);
-  const [showClues,setShowClues]=useState(true);
+  const [notebook,setNotebook]=useState({open:false,suspectWeapon:[["","",""],["","",""],["","",""]],suspectRoom:[["","",""],["","",""],["","",""]],roomWeapon:[["","",""],["","",""],["","",""]],autoMarks:{}});
   const [discoveredClues,setDiscoveredClues]=useState([]);
   const [result,setResult]=useState(null);
   const [sayingBye,setSayingBye]=useState(false);
@@ -1656,10 +1660,11 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const resultRef=useRef(null);
   const roomRef=useRef("hall");
   const examiningRef=useRef(null);
+  const notebookRef=useRef(false);
   const greetedRef=useRef(false);
   const examCanvasRef=useRef(null);
   const cutsceneRef=useRef("pause");
-  const cutsceneTimerRef=useRef(48);
+  const cutsceneTimerRef=useRef(36);
   const typewriterRef=useRef(null);
   const leadPosRef=useRef({x:10*TILE, y:8*TILE});
 
@@ -1674,6 +1679,7 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   useEffect(()=>{resultRef.current=result;},[result]);
   useEffect(()=>{roomRef.current=room;},[room]);
   useEffect(()=>{examiningRef.current=examining;},[examining]);
+  useEffect(()=>{notebookRef.current=notebook.open;},[notebook.open]);
 
   // Pre-set lead detective's greeting for subsequent talks
   useEffect(()=>{
@@ -1696,7 +1702,7 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   // Keyboard
   useEffect(()=>{
     const down=e=>{
-      if(chatOpenRef.current||resultRef.current||examiningRef.current||cutsceneRef.current)return;
+      if(chatOpenRef.current||resultRef.current||examiningRef.current||cutsceneRef.current||notebookRef.current)return;
       keysRef.current[e.key]=true;
       startMusicForLevel();
       if(e.key==="z"||e.key==="Z"){
@@ -1741,14 +1747,14 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
           }
         }
       }
-      if(e.key==="c"||e.key==="C")setShowClues(p=>!p);
+      if(e.key==="c"||e.key==="C")setNotebook(p=>({...p,open:!p.open}));
     };
     const up=e=>{keysRef.current[e.key]=false;};
     window.addEventListener("keydown",down);window.addEventListener("keyup",up);
     return()=>{window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);};
   },[startMusicForLevel]);
 
-  useEffect(()=>{const h=e=>{if(e.key==="Escape"){if(examiningRef.current){e.preventDefault();setExamining(null);return;}if(chatOpenRef.current){e.preventDefault();setChatOpen(false);}}};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[]);
+  useEffect(()=>{const h=e=>{if(e.key==="Escape"){if(notebookRef.current){e.preventDefault();setNotebook(p=>({...p,open:false}));return;}if(examiningRef.current){e.preventDefault();setExamining(null);return;}if(chatOpenRef.current){e.preventDefault();setChatOpen(false);}}};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[]);
   useEffect(()=>{if(chatEndRef.current)chatEndRef.current.parentElement.scrollTop=chatEndRef.current.parentElement.scrollHeight;},[messages]);
 
   // Portrait drawing
@@ -1782,20 +1788,22 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         const lp=leadPosRef.current;
         if(cutsceneRef.current==="pause"){
           cutsceneTimerRef.current--;
-          if(cutsceneTimerRef.current<=0){cutsceneRef.current="alert";cutsceneTimerRef.current=80;}
+          if(cutsceneTimerRef.current<=0){cutsceneRef.current="alert";cutsceneTimerRef.current=55;try{const alertSynth=new Tone.Synth({oscillator:{type:"square"},envelope:{attack:0.01,decay:0.1,sustain:0,release:0.1},volume:-8}).toDestination();alertSynth.triggerAttackRelease("C5","8n");setTimeout(()=>alertSynth.triggerAttackRelease("E5","8n"),100);}catch{}}
         }else if(cutsceneRef.current==="alert"){
           cutsceneTimerRef.current--;
           if(cutsceneTimerRef.current<=0){cutsceneRef.current="walk";}
         }else if(cutsceneRef.current==="walk"){
-          const dy=p.y-lp.y;
-          if(dy>TILE*1.5){
+          const targetY=10*TILE;
+          if(lp.y<targetY){
             lp.y+=1.8;
+            if(lp.y>targetY)lp.y=targetY;
           }else{
+            chatOpenRef.current=true;
+            setChatOpen(true);
+            setTalkingTo("lead");
             cutsceneRef.current=false;
             const greeting="Thank God you're here! There's been a murder at the Ashworth Gallery! Lord Ashworth, the curator, was found dead right here in the entry hall. Blunt force trauma. We have three suspects: VP Mauve \u2014 a corporate executive who funded the new wing, Viscount Eminence \u2014 an aristocrat who loaned pieces to the collection, and The Duchess of Vermillion \u2014 a wealthy socialite and frequent patron. Question them, examine the evidence, and report to Detective Andrews with your accusation: WHO did it, with WHAT weapon, and WHERE.";
             setMessages(prev=>({...prev,lead:[{role:"assistant",text:greeting}]}));
-            setTalkingTo("lead");
-            setChatOpen(true);
             greetedNpcRef.current["lead"]=true;startTyping("lead",greeting);
           }
         }
@@ -1854,7 +1862,7 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         }
       }
 
-      if(!chatOpenRef.current&&!resultRef.current&&!examiningRef.current&&!cutsceneRef.current){
+      if(!chatOpenRef.current&&!resultRef.current&&!examiningRef.current&&!cutsceneRef.current&&!notebookRef.current){
         let nx=p.x,ny=p.y;
         if(keys["ArrowUp"]||keys["w"]){ny-=SPEED;p.dir="up";moved=true;}
         if(keys["ArrowDown"]||keys["s"]){ny+=SPEED;p.dir="down";moved=true;}
@@ -1944,14 +1952,15 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         const drawX=(npc.key==="lead"&&cutsceneRef.current)?leadPosRef.current.x:w?w.x:npc.x;
         const drawY=(npc.key==="lead"&&cutsceneRef.current)?leadPosRef.current.y:w?w.y:npc.y;
         npc.draw(ctx,drawX,drawY);
-        ctx.fillStyle=npc.color;ctx.font="11px "+FONT;ctx.textAlign="center";
-        ctx.fillText(npc.label,drawX+16,drawY-8);ctx.textAlign="left";
+        ctx.font="11px "+FONT;ctx.textAlign="center";ctx.fillStyle=npc.color;ctx.fillText(npc.label,drawX+16,drawY-8);ctx.textAlign="left";
       });
       // Draw "!" alert above detective during alert phase
       if(cutsceneRef.current==="alert"){
         const lp=leadPosRef.current;
-        ctx.fillStyle="#e8d070";ctx.font="14px "+FONT;ctx.textAlign="center";
-        ctx.fillText("!",lp.x+16,lp.y-14);ctx.textAlign="left";
+        ctx.fillStyle="#fff";ctx.fillRect(lp.x+4,lp.y-44,24,28);
+        ctx.strokeStyle="#000";ctx.lineWidth=2;ctx.strokeRect(lp.x+4,lp.y-44,24,28);ctx.lineWidth=1;
+        ctx.fillStyle="#cc0000";ctx.font="18px "+FONT;ctx.textAlign="center";
+        ctx.fillText("!",lp.x+16,lp.y-21);ctx.textAlign="left";
       }
       drawPlayer(ctx,p.x,p.y,p.dir,p.frame);
       if(!chatOpenRef.current&&!examiningRef.current&&!cutsceneRef.current){
@@ -2085,7 +2094,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
       if(talkingTo==="duchess"&&rl.includes("viscount")&&rl.includes("entry hall"))
         setDiscoveredClues(prev=>prev.includes("Duchess's statement: \"Viscount Eminence was in the entry hall around the time of the murder.\"")?prev:[...prev,"Duchess's statement: \"Viscount Eminence was in the entry hall around the time of the murder.\""]);
     }catch{
-      setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:"*radio static* ...say again?"}]}));
+      setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:"*radio static* ...say again?"}]}));startTyping(talkingTo,"*radio static* ...say again?");
     }
     setLoading(false);
   },[input,loading,talkingTo,messages]);
@@ -2115,6 +2124,42 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
     </div>
   );
 
+  // ── Notebook toggle cell logic ──
+  function toggleCell(gridName, row, col) {
+    setNotebook(prev => {
+      const grid = prev[gridName].map(r => [...r]);
+      const current = grid[row][col];
+      const autoMarks = { ...prev.autoMarks };
+      const cellKey = `${gridName}-${row}-${col}`;
+      if (autoMarks[cellKey]) {
+        autoMarks[cellKey].forEach(({ row: r, col: c }) => {
+          if (grid[r][c] === "x") grid[r][c] = "";
+        });
+        delete autoMarks[cellKey];
+      }
+      const next = current === "" ? "?" : current === "?" ? "x" : current === "x" ? "check" : "";
+      grid[row][col] = next;
+      if (next === "check") {
+        const marked = [];
+        for (let c = 0; c < 3; c++) {
+          if (c !== col && grid[row][c] === "") { grid[row][c] = "x"; marked.push({ row, col: c }); }
+        }
+        for (let r = 0; r < 3; r++) {
+          if (r !== row && grid[r][col] === "") { grid[r][col] = "x"; marked.push({ row: r, col }); }
+        }
+        autoMarks[cellKey] = marked;
+      }
+      return { ...prev, [gridName]: grid, autoMarks };
+    });
+  }
+  const cellDisp = v => v === "check" ? "✓" : v === "x" ? "✗" : v === "?" ? "?" : "";
+  const cellColor = v => v === "check" ? "#44ff44" : v === "x" ? "#ff4444" : v === "?" ? "#e8d070" : "#888";
+  const SUSP_LABELS = ["Mauve","Visc.","Duch."];
+  const SUSP_COLORS = ["#8b5a8b","#6b3a8b","#cc3030"];
+  const WEAP_LABELS = ["Vase","Frame","Statue"];
+  const ROOM_LABELS = ["Hall","Bath","Gift"];
+  const NB_CELL = 36;
+
   const curMsgs=talkingTo?messages[talkingTo]:[];
   const npcInfo={mauve:{name:"VP MAUVE",color:"#8b5a8b"},viscount:{name:"VISCOUNT EMINENCE",color:"#6b3a8b"},duchess:{name:"DUCHESS VERMILLION",color:"#cc3030"},cop:{name:"DETECTIVE",color:"#2244aa"},lead:{name:"LEAD DETECTIVE",color:"#b89868"},soothsayer:{name:"SOOTHSAYER",color:"#6b40aa"},forensics:{name:"FORENSICS",color:"#88aacc"}};
   const ti=talkingTo?npcInfo[talkingTo]:null;
@@ -2130,26 +2175,75 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
         <canvas ref={canvasRef} width={L2_W} height={L2_H} style={{display:"block",imageRendering:"pixelated",width:"100%",borderRadius:3}} />
       </div>
       <div style={{color:"#8a8a7a",fontSize:10,marginTop:6,textAlign:"center"}}>
-        {chatOpen||examining?"":nearEntity?"TAP A TO TALK":nearExaminable?"TAP A TO EXAMINE":"D-PAD MOVE · A INTERACT · C CLUES"}
+        {chatOpen||examining?"":nearEntity?"TAP A TO TALK":nearExaminable?"TAP A TO EXAMINE":"D-PAD MOVE · A INTERACT · C NOTEBOOK"}
       </div>
 
-      {/* Clue panel */}
-      {showClues&&!chatOpen&&(
-        <div style={{width:L2_W+12,maxWidth:"100%",background:"#1a1420",border:"2px solid #5a4a30",borderRadius:6,marginTop:6,padding:10,boxSizing:"border-box"}}>
-          <div style={{color:"#e8d070",fontSize:7,marginBottom:6,textAlign:"center"}}>─── CLUES & EVIDENCE ───</div>
-          {discoveredClues.length === 0 ? (
-            <div style={{color:"#8a8a7a",fontSize:10,lineHeight:"18px",fontStyle:"italic"}}>No clues discovered yet. Examine objects and talk to people.</div>
-          ) : (
-            [
-              ...discoveredClues.filter(c=>c.includes("statement:")),
-              ...discoveredClues.filter(c=>c.includes("thread")||c.includes("Security footage")),
-              ...discoveredClues.filter(c=>c.includes("Soothsayer")),
-              ...discoveredClues.filter(c=>!c.includes("statement:")&&!c.includes("thread")&&!c.includes("Security footage")&&!c.includes("Soothsayer")),
-            ].map((clue, i) => (
-              <div key={i} style={{color:"#c8b880",fontSize:10,lineHeight:"18px",marginBottom:4}}>• {clue}</div>
-            ))
-          )}
-          <div style={{color:"#6a6a5a",fontSize:6,marginTop:6,textAlign:"center"}}>TAP C TO TOGGLE</div>
+      {/* Notebook icon — positioned above touch controls */}
+      {!chatOpen&&!examining&&!result&&!cutsceneRef.current&&(
+        <button onClick={()=>setNotebook(p=>({...p,open:true}))} style={{position:"fixed",bottom:180,left:16,zIndex:100,width:48,height:48,background:"#1a1420",border:"2px solid #e8d070",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,padding:0,boxShadow:"0 0 8px rgba(232,208,112,0.3)",touchAction:"none"}}>📓</button>
+      )}
+
+      {/* Notebook modal */}
+      {notebook.open&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:200,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:16}} onClick={()=>setNotebook(p=>({...p,open:false}))}>
+          <div style={{background:"#1a1420",border:"3px solid #e8d070",borderRadius:8,padding:14,maxWidth:420,width:"100%",fontFamily:FONT}} onClick={e=>e.stopPropagation()}>
+            <div style={{color:"#e8d070",fontSize:9,marginBottom:12,textAlign:"center",letterSpacing:2}}>─── DETECTIVE'S NOTEBOOK ───</div>
+
+            {/* Deduction Grid */}
+            <div style={{overflowX:"auto",marginBottom:12,display:"flex",justifyContent:"center"}}>
+              <table style={{borderCollapse:"collapse",fontFamily:FONT}}>
+                <thead>
+                  <tr>
+                    <td style={{width:NB_CELL*1.5}}/>
+                    {WEAP_LABELS.map((w,i)=><td key={i} style={{width:NB_CELL,textAlign:"center",color:"#e8d070",fontSize:9,padding:"2px 0",fontFamily:FONT}}>{w}</td>)}
+                    <td style={{width:8}}/>
+                    {ROOM_LABELS.map((r,i)=><td key={i} style={{width:NB_CELL,textAlign:"center",color:"#e8d070",fontSize:9,padding:"2px 0",fontFamily:FONT}}>{r}</td>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[0,1,2].map(r=>(
+                    <tr key={"s"+r}>
+                      <td style={{color:SUSP_COLORS[r],fontSize:9,paddingRight:4,textAlign:"right",fontFamily:FONT}}>{SUSP_LABELS[r]}</td>
+                      {[0,1,2].map(c=><td key={c} onClick={()=>toggleCell("suspectWeapon",r,c)} style={{width:NB_CELL,height:NB_CELL,border:"1px solid #3a3060",background:"#1a1420",textAlign:"center",cursor:"pointer",fontSize:16,color:cellColor(notebook.suspectWeapon[r][c]),fontFamily:"sans-serif",userSelect:"none"}}>{cellDisp(notebook.suspectWeapon[r][c])}</td>)}
+                      <td style={{width:8,borderLeft:"2px solid #5a4a30"}}/>
+                      {[0,1,2].map(c=><td key={c} onClick={()=>toggleCell("suspectRoom",r,c)} style={{width:NB_CELL,height:NB_CELL,border:"1px solid #3a3060",background:"#1a1420",textAlign:"center",cursor:"pointer",fontSize:16,color:cellColor(notebook.suspectRoom[r][c]),fontFamily:"sans-serif",userSelect:"none"}}>{cellDisp(notebook.suspectRoom[r][c])}</td>)}
+                    </tr>
+                  ))}
+                  <tr><td colSpan={8} style={{height:4,borderBottom:"2px solid #5a4a30"}}/></tr>
+                  {[0,1,2].map(r=>(
+                    <tr key={"r"+r}>
+                      <td style={{color:"#e8d070",fontSize:9,paddingRight:4,textAlign:"right",fontFamily:FONT}}>{ROOM_LABELS[r]}</td>
+                      {[0,1,2].map(c=><td key={c} onClick={()=>toggleCell("roomWeapon",r,c)} style={{width:NB_CELL,height:NB_CELL,border:"1px solid #3a3060",background:"#1a1420",textAlign:"center",cursor:"pointer",fontSize:16,color:cellColor(notebook.roomWeapon[r][c]),fontFamily:"sans-serif",userSelect:"none"}}>{cellDisp(notebook.roomWeapon[r][c])}</td>)}
+                      <td colSpan={4}/>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Clues */}
+            <div style={{borderTop:"1px solid #3a3060",paddingTop:10,marginBottom:10}}>
+              <div style={{color:"#e8d070",fontSize:9,marginBottom:6,textAlign:"center"}}>─── CLUES & EVIDENCE ───</div>
+              {discoveredClues.length===0?(
+                <div style={{color:"#8a8a7a",fontSize:10,lineHeight:"18px",fontStyle:"italic"}}>No clues discovered yet. Examine objects and talk to people.</div>
+              ):(
+                [
+                  ...discoveredClues.filter(c=>c.includes("statement:")),
+                  ...discoveredClues.filter(c=>c.includes("thread")||c.includes("Security footage")),
+                  ...discoveredClues.filter(c=>c.includes("Soothsayer")),
+                  ...discoveredClues.filter(c=>!c.includes("statement:")&&!c.includes("thread")&&!c.includes("Security footage")&&!c.includes("Soothsayer")),
+                ].map((clue,i)=>(
+                  <div key={i} style={{color:"#c8b880",fontSize:10,lineHeight:"18px",marginBottom:4}}>• {clue}</div>
+                ))
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+              <button onClick={()=>setNotebook(p=>({...p,suspectWeapon:[["","",""],["","",""],["","",""]],suspectRoom:[["","",""],["","",""],["","",""]],roomWeapon:[["","",""],["","",""],["","",""]],autoMarks:{}}))} style={{fontFamily:FONT,fontSize:8,padding:"10px 14px",background:"transparent",color:"#ff6644",border:"1px solid #ff6644",borderRadius:4,cursor:"pointer",minHeight:44}}>RESET GRID</button>
+              <button onClick={()=>setNotebook(p=>({...p,open:false}))} style={{fontFamily:FONT,fontSize:8,padding:"10px 14px",background:"transparent",color:"#e8d070",border:"2px solid #e8d070",borderRadius:4,cursor:"pointer",minHeight:44}}>CLOSE</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2197,8 +2291,8 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
                     const correct=accusation.who==="Duchess of Vermillion"&&accusation.what==="Abstract Statue"&&s==="Gift Shop";
                     const resultText=correct?"CASE CLOSED! The Duchess of Vermillion... with the abstract statue... in the gift shop! Brilliant work, detective!":"That's not right, detective. Go back and check the evidence. You can try again when you're ready.";setMessages(prev=>({...prev,cop:[...prev.cop,{role:"assistant",text:resultText}]}));startTyping("cop",resultText);
                     setAccusation(null);
-                    if(correct)setTimeout(()=>setResult("win"),1500);
-                    else setTimeout(()=>setResult("wrong"),1500);
+                    if(correct)setTimeout(()=>{stopTyping();setChatOpen(false);setResult("win");},1500);
+                    else setTimeout(()=>{stopTyping();setChatOpen(false);setResult("wrong");},1500);
                   }} style={{display:"block",width:"100%",marginBottom:4,padding:"10px 8px",fontFamily:FONT,fontSize:7,cursor:"pointer",background:"#2a1020",border:"1px solid #cc3030",borderRadius:3,color:"#e8d070",textAlign:"left",minHeight:44}}>{s}</button>
                 ))}
                 <button onClick={()=>setAccusation(null)} style={{marginTop:4,background:"transparent",border:"1px solid #666",borderRadius:3,color:"#666",fontFamily:FONT,fontSize:6,padding:"3px 6px",cursor:"pointer",width:"100%"}}>CANCEL</button>
@@ -2206,7 +2300,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
             </div>
           )}
           {sayingBye?null:
-            <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #3a3040",borderRadius:4,color:"#6a6a8a",fontFamily:FONT,fontSize:8,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
+            <button ref={walkAwayRef} onClick={()=>{const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const goodbyes={mauve:"Time is money, detective.",viscount:"*waves dismissively* Do come back when you have something useful.",duchess:"Oh, do visit again! This is so exciting!",cop:"Stay sharp, detective. Justice waits for no one.",lead:"Good luck out there. We're counting on you.",soothsayer:"The spirits will be watching...",forensics:"Let me know if you need anything re-examined."};const g=goodbyes[talkingTo]||"Goodbye.";setMessages(prev=>({...prev,[talkingTo]:[...prev[talkingTo],{role:"assistant",text:g}]}));setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #8a7a50",borderRadius:4,color:"#a09070",fontFamily:FONT,fontSize:9,padding:"10px 8px",cursor:"pointer",width:"100%",minHeight:44}}>THANKS, GOODBYE</button>
           }
         </div>
       )}
@@ -2221,7 +2315,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
           </div>
         </div>
       )}
-      <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={true} showCloseBtn={false} hidden={chatOpen||!!examining||!!result} />
+      <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={true} showCloseBtn={false} hidden={chatOpen||!!examining||!!result||notebook.open} />
     </div>
   );
 }
