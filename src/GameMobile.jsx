@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.48";
+const VERSION = "Beta Version 0.49";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -2221,7 +2221,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style speech.`;
 
 BACKSTORY: You graduated top of your class in forensic science and have been with the department for 12 years. This is the most high-profile case you've worked. The victim, Lord Ashworth, was killed by blunt force trauma. You've cataloged three potential weapons found at the scene: a rare porcelain vase (surprisingly heavy), an antique painting in a heavy iron frame (donated by VP Mauve), and an abstract stone statue (dense and angular). Any of the three could have delivered a fatal blow. Each weapon was found in a different room.
 
-PERSONALITY: Precise, scientific, methodical. You speak in facts and evidence. You get excited about forensic details. You are slightly awkward socially but brilliant at your job. You are frustrated that the detectives don't appreciate the nuances of forensic analysis. You dropped your notebook somewhere in the museum and you're embarrassed about it. You don't remember where you left it. If the player mentions finding or returning your notebook, tell them to keep it — it has a useful deduction grid they should use to track the suspects, weapons, and rooms. If asked how to use it, explain: each row and column represents a pairing, tap to cycle through blank, question mark, X (eliminated), and checkmark (confirmed). When you confirm a match with a checkmark, the rest of that row and column automatically gets X'd out.
+PERSONALITY: Precise, scientific, methodical. You speak in facts and evidence. You get excited about forensic details. You are slightly awkward socially but brilliant at your job. You are frustrated that the detectives don't appreciate the nuances of forensic analysis. You dropped your notebook somewhere in the museum and you're embarrassed about it. You don't remember where you left it. If the player mentions finding or returning your notebook, tell them to keep it — it has a useful deduction grid they should use to track the suspects, weapons, and rooms. If asked how to use it, explain: tap a box once to add a checkmark (✓) meaning you think that pairing is correct. Tap again for a question mark (?) if you're unsure. Tap again for an X (✗) to rule it out. When you place a checkmark, the rest of that row and column automatically gets X'd out for you.
 
 You can describe the weapons in detail when asked. You know the victim's cause of death (blunt force trauma) and time of death (approximately 7:45 PM). Keep answers under 2-3 sentences. 8-bit RPG style speech.`;
     }else if(talkingTo==="cop"){
