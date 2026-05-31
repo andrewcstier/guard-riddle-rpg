@@ -13,7 +13,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.55";
+const VERSION = "Beta Version 0.56";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -616,6 +616,9 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [loading,setLoading]=useState(false);
   const [nearEntity,setNearEntity]=useState(null);
   const [guardsGone,setGuardsGone]=useState({left:false,right:false});
+  const [hardModeAnswered,setHardModeAnswered]=useState(false);
+  const guardOpacityRef=useRef(1);
+  const guardFadingRef=useRef(false);
   const [sayingBye,setSayingBye]=useState(false);
   const { typingText, startTyping, stopTyping } = useTypewriter();
   const greetedGuardRef = useRef({left:false,right:false});
@@ -672,7 +675,7 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         if(keys["ArrowDown"]||keys["s"]){ny+=SPEED;p.dir="down";moved=true;}
         if(keys["ArrowLeft"]||keys["a"]){nx-=SPEED;p.dir="left";moved=true;}
         if(keys["ArrowRight"]||keys["d"]){nx+=SPEED;p.dir="right";moved=true;}
-        const blocked=[GUARD_L,GUARD_R].some(g=>{const gx=g.col*TILE,gy=g.row*TILE;return nx+TILE>gx-4&&nx<gx+TILE+4&&ny+TILE>gy-4&&ny<gy+TILE;});
+        const blocked=[GUARD_L,GUARD_R].some((g,i)=>{if(guardsGoneRef.current[i===0?"left":"right"])return false;const gx=g.col*TILE,gy=g.row*TILE;return nx+TILE>gx-4&&nx<gx+TILE+4&&ny+TILE>gy-4&&ny<gy+TILE;});
         if(!blocked){p.x=Math.max(TILE,Math.min((L1_COLS-2)*TILE,nx));p.y=Math.max(TILE*2+10,Math.min((L1_ROWS-2)*TILE,ny));}
       }
       if(moved){p.tick++;if(p.tick>8){p.frame++;p.tick=0;}}
@@ -685,8 +688,14 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
       setNearEntity(ne);
       ctx.clearRect(0,0,L1_W,L1_H);
       drawDungeon(ctx);
-      if(!guardsGoneRef.current.left){drawGuard(ctx,gLx,gLy,"left");ctx.font="6px "+FONT;ctx.textAlign="center";ctx.fillStyle="#b04040";ctx.fillText("GUARD 1",gLx+16,gLy-16);ctx.textAlign="left";}
-      if(!guardsGoneRef.current.right){drawGuard(ctx,gRx,gRy,"right");ctx.font="6px "+FONT;ctx.textAlign="center";ctx.fillStyle="#4060b0";ctx.fillText("GUARD 2",gRx+16,gRy-16);ctx.textAlign="left";}
+      // Fade guards in hard mode
+      if(guardFadingRef.current){
+        guardOpacityRef.current=Math.max(0,guardOpacityRef.current-0.015);
+        if(guardOpacityRef.current<=0){guardFadingRef.current=false;setGuardsGone({left:true,right:true});}
+      }
+      const gOp=guardOpacityRef.current;
+      if(!guardsGoneRef.current.left){ctx.globalAlpha=gOp;drawGuard(ctx,gLx,gLy,"left");ctx.font="6px "+FONT;ctx.textAlign="center";ctx.fillStyle="#b04040";ctx.fillText("GUARD 1",gLx+16,gLy-16);ctx.textAlign="left";ctx.globalAlpha=1;}
+      if(!guardsGoneRef.current.right){ctx.globalAlpha=gOp;drawGuard(ctx,gRx,gRy,"right");ctx.font="6px "+FONT;ctx.textAlign="center";ctx.fillStyle="#4060b0";ctx.fillText("GUARD 2",gRx+16,gRy-16);ctx.textAlign="left";ctx.globalAlpha=1;}
       drawPlayer(ctx,p.x,p.y,p.dir,p.frame);
       if(!chatOpenRef.current&&gamePhaseRef.current==="play"){
         if(ne==="guardL")drawZPrompt(ctx,gLx,gLy);
@@ -751,8 +760,7 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
       else setMessagesR(p=>[...p,{role:"assistant",text:reply}]);
       startTyping(talkingTo,reply);
       if(hardMode){
-        const delay=Math.max(2000,reply.length*25+500);
-        setTimeout(()=>{stopTyping();setChatOpen(false);setGuardsGone({left:true,right:true});},delay);
+        setHardModeAnswered(true);
       }
     }catch{
       const e={role:"assistant",text:"*coughs* ...the dungeon air is thick. Ask again."};
@@ -830,11 +838,14 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
             {loading&&!sayingBye&&<div style={{color:"#6a6a8a",fontSize:8}}>The guard ponders...</div>}
             <div ref={chatEndRef}/>
           </div>
-          {!sayingBye&&<div style={{display:"flex",gap:6}}>
+          {!sayingBye&&!hardModeAnswered&&<div style={{display:"flex",gap:6}}>
             <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter")sendMessage();if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowDown"){e.preventDefault();walkAwayRef.current?.focus();}}} placeholder="Ask the guard..." style={{flex:1,background:"#141020",border:"2px solid #3a3060",borderRadius:4,color:"#ddd",fontFamily:FONT,fontSize:8,padding:"6px 8px",outline:"none"}} />
             <button onClick={sendMessage} style={{background:"#e8d070",border:"none",borderRadius:4,fontFamily:FONT,fontSize:8,padding:"6px 10px",cursor:"pointer",color:"#0e0c14"}}>▶</button>
           </div>}
-          {sayingBye?null:
+          {hardModeAnswered&&!sayingBye&&(
+            <button onClick={()=>{setChatOpen(false);guardFadingRef.current=true;try{const s=new Tone.Synth({oscillator:{type:"sawtooth"},envelope:{attack:0.3,decay:1.5,sustain:0,release:0.5},volume:-14}).toDestination();s.triggerAttackRelease("D2","2n");setTimeout(()=>{const s2=new Tone.Synth({oscillator:{type:"sine"},envelope:{attack:0.2,decay:1,sustain:0,release:0.3},volume:-16}).toDestination();s2.triggerAttackRelease("Ab1","2n");},400);}catch{}}} style={{marginTop:6,background:"#2a1020",border:"2px solid #cc4444",borderRadius:4,color:"#ff6644",fontFamily:FONT,fontSize:8,padding:"6px 8px",cursor:"pointer",width:"100%"}}>NEXT...</button>
+          )}
+          {sayingBye?null:!hardModeAnswered&&
             <button ref={walkAwayRef} onClick={()=>{const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}} onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=talkingTo==="left"?"Hmph. Don't take too long, prisoner.":"Watch your step out there...";if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:g}]);else setMessagesR(p=>[...p,{role:"assistant",text:g}]);setSayingBye(g);startTyping("bye",g);setTimeout(()=>{setSayingBye(false);setChatOpen(false);},Math.max(1500,g.length*25+500));}if(e.key==="Escape"){e.preventDefault();setChatOpen(false);}if(e.key==="ArrowUp"){e.preventDefault();inputRef.current?.focus();}}} style={{marginTop:6,background:"transparent",border:"1px solid #8a7a50",borderRadius:4,color:"#a09070",fontFamily:FONT,fontSize:7,padding:"4px 8px",cursor:"pointer",width:"100%"}}>THANKS, GOODBYE</button>
           }
         </div>
