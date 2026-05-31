@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.50";
+const VERSION = "Beta Version 0.51";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -2268,15 +2268,15 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
     </div>
   );
 
-  if(result==="wrong") return (
-    <div style={{fontFamily:FONT,background:"#1a0a0a",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:20}}>
+  const wrongOverlay = result==="wrong" ? (
+    <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(26,10,10,0.95)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:20,zIndex:200}}>
       {muteBtn}
       <div style={{fontSize:22,color:"#ff6644",textShadow:"0 0 20px #ff6644",marginBottom:20}}>WRONG ACCUSATION</div>
       <div style={{fontSize:9,color:"#e8a080",lineHeight:"22px",maxWidth:400,marginBottom:20}}>The suspect walks free. The real culprit escapes. Review the evidence and try again.</div>
       <div style={{fontSize:40,margin:"10px 0"}}>🤦‍♂️📋</div>
-      <button onClick={()=>{setResult(null);setMessages(prev=>({...prev,cop:[{role:"assistant",text:"Back for another try, detective? WHO did it, with WHAT, and WHERE?"}]}));}} style={{fontFamily:FONT,fontSize:10,padding:"14px 28px",background:"#ff6644",color:"#1a0a0a",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #ff6644",marginTop:10,minHeight:48}}>INVESTIGATE MORE</button>
+      <button onClick={()=>{setResult(null);setAccusation(null);}} style={{fontFamily:FONT,fontSize:10,padding:"14px 28px",background:"#ff6644",color:"#1a0a0a",border:"none",borderRadius:6,cursor:"pointer",boxShadow:"0 0 20px #ff6644",marginTop:10,minHeight:48}}>INVESTIGATE MORE</button>
     </div>
-  );
+  ) : null;
 
   // ── Notebook toggle cell logic ──
   function toggleCell(gridName, row, col) {
@@ -2476,6 +2476,7 @@ Keep answers under 2-3 sentences. 8-bit RPG style.`;
           </div>
         </div>
       )}
+      {wrongOverlay}
       <TouchControls keysRef={keysRef} startMusicForLevel={startMusicForLevel} showCBtn={!notebook.open} showCloseBtn={false} hidden={chatOpen||!!examining||!!result} showNotebook={hasNotebook} onNotebookToggle={()=>setNotebook(p=>({...p,open:!p.open}))} />
     </div>
   );
