@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.52";
+const VERSION = "Beta Version 0.53";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -47,7 +47,7 @@ async function initMusic(level, muted) {
   currentGainNode = gain;
   currentLevel = level;
 
-  if (level === 1) {
+  if (level === 1 || level === "1hard") {
     // ── Dungeon theme — D minor, dark and tense ──
     Tone.getTransport().bpm.value = 105;
     const mel = new Tone.Synth({ oscillator:{type:"square"}, envelope:{attack:0.01,decay:0.15,sustain:0.3,release:0.1}, volume:-14 }).connect(gain);
@@ -819,7 +819,7 @@ function useTypewriter() {
   return { typingText, startTyping, stopTyping };
 }
 
-function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel, apiKey, model }) {
+function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel, apiKey, model, hardMode }) {
   const canvasRef=useRef(null);
   const keysRef=useRef({});
   const playerRef=useRef({x:7.5*TILE,y:8*TILE,dir:"up",frame:0,tick:0});
@@ -833,6 +833,7 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const [input,setInput]=useState("");
   const [loading,setLoading]=useState(false);
   const [nearEntity,setNearEntity]=useState(null);
+  const [guardsGone,setGuardsGone]=useState({left:false,right:false});
   const [sayingBye,setSayingBye]=useState(false);
   const { typingText, startTyping, stopTyping } = useTypewriter();
   const greetedGuardRef = useRef({left:false,right:false});
@@ -841,9 +842,11 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
   const walkAwayRef=useRef(null);
   const chatOpenRef=useRef(false);
   const gamePhaseRef=useRef("play");
+  const guardsGoneRef=useRef({left:false,right:false});
 
   useEffect(()=>{chatOpenRef.current=chatOpen;},[chatOpen]);
   useEffect(()=>{gamePhaseRef.current=gamePhase;},[gamePhase]);
+  useEffect(()=>{guardsGoneRef.current=guardsGone;},[guardsGone]);
 
   const gLx=GUARD_L.col*TILE,gLy=GUARD_L.row*TILE,gRx=GUARD_R.col*TILE,gRy=GUARD_R.row*TILE;
 
@@ -859,8 +862,8 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
         const dL=Math.hypot(p.x-gLx,p.y-gLy),dR=Math.hypot(p.x-gRx,p.y-gRy);
         const dDL=Math.hypot(p.x-DOOR_L.col*TILE,p.y-DOOR_L.row*TILE);
         const dDR=Math.hypot(p.x-DOOR_R.col*TILE,p.y-DOOR_R.row*TILE);
-        if(dL<INTERACT_DIST){setTalkingTo("left");setChatOpen(true);setSayingBye(false);const gl="Halt, prisoner. You may ask me anything... if you dare.";setMessagesL(p=>p.length===0?[{role:"assistant",text:gl}]:p);if(!greetedGuardRef.current.left){greetedGuardRef.current.left=true;startTyping("left",gl);}}
-        else if(dR<INTERACT_DIST){setTalkingTo("right");setChatOpen(true);setSayingBye(false);const gr="Well well... a visitor. Ask your questions carefully.";setMessagesR(p=>p.length===0?[{role:"assistant",text:gr}]:p);if(!greetedGuardRef.current.right){greetedGuardRef.current.right=true;startTyping("right",gr);}}
+        if(dL<INTERACT_DIST&&!guardsGone.left&&!guardsGone.right){setTalkingTo("left");setChatOpen(true);setSayingBye(false);const gl=hardMode?"One question, prisoner. Make it count.":"Halt, prisoner. You may ask me anything... if you dare.";setMessagesL(p=>p.length===0?[{role:"assistant",text:gl}]:p);if(!greetedGuardRef.current.left){greetedGuardRef.current.left=true;startTyping("left",gl);}}
+        else if(dR<INTERACT_DIST&&!guardsGone.left&&!guardsGone.right){setTalkingTo("right");setChatOpen(true);setSayingBye(false);const gr=hardMode?"Speak quickly. You get one question.":"Well well... a visitor. Ask your questions carefully.";setMessagesR(p=>p.length===0?[{role:"assistant",text:gr}]:p);if(!greetedGuardRef.current.right){greetedGuardRef.current.right=true;startTyping("right",gr);}}
         else if(dDL<INTERACT_DIST+10){if(safeDoor==="left")onWin();else setGamePhase("lose");}
         else if(dDR<INTERACT_DIST+10){if(safeDoor==="right")onWin();else setGamePhase("lose");}
       }
@@ -894,16 +897,13 @@ function Level1({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
       const dDL=Math.hypot(p.x-DOOR_L.col*TILE,p.y-DOOR_L.row*TILE);
       const dDR=Math.hypot(p.x-DOOR_R.col*TILE,p.y-DOOR_R.row*TILE);
       let ne=null;
-      if(dL<INTERACT_DIST)ne="guardL";else if(dR<INTERACT_DIST)ne="guardR";
+      if(dL<INTERACT_DIST&&!guardsGoneRef.current.left)ne="guardL";else if(dR<INTERACT_DIST&&!guardsGoneRef.current.right)ne="guardR";
       else if(dDL<INTERACT_DIST+10)ne="doorL";else if(dDR<INTERACT_DIST+10)ne="doorR";
       setNearEntity(ne);
       ctx.clearRect(0,0,L1_W,L1_H);
       drawDungeon(ctx);
-      drawGuard(ctx,gLx,gLy,"left"); drawGuard(ctx,gRx,gRy,"right");
-      ctx.font="12px "+FONT;ctx.textAlign="center";
-      ctx.fillStyle="#b04040";ctx.fillText("GUARD 1",gLx+16,gLy-16);
-      ctx.fillStyle="#4060b0";ctx.fillText("GUARD 2",gRx+16,gRy-16);
-      ctx.textAlign="left";
+      if(!guardsGoneRef.current.left){drawGuard(ctx,gLx,gLy,"left");ctx.font="12px "+FONT;ctx.textAlign="center";ctx.fillStyle="#b04040";ctx.fillText("GUARD 1",gLx+16,gLy-16);ctx.textAlign="left";}
+      if(!guardsGoneRef.current.right){drawGuard(ctx,gRx,gRy,"right");ctx.font="12px "+FONT;ctx.textAlign="center";ctx.fillStyle="#4060b0";ctx.fillText("GUARD 2",gRx+16,gRy-16);ctx.textAlign="left";}
       drawPlayer(ctx,p.x,p.y,p.dir,p.frame);
       if(!chatOpenRef.current&&gamePhaseRef.current==="play"){
         if(ne==="guardL")drawZPrompt(ctx,gLx,gLy);
@@ -966,12 +966,17 @@ PERSONALITY: Gruff medieval dungeon guard. Short sentences, 2-3 max. Menacing bu
       const reply=await callLLM({model,system:sys,messages:cur,maxTokens:300,apiKey});
       if(talkingTo==="left")setMessagesL(p=>[...p,{role:"assistant",text:reply}]);
       else setMessagesR(p=>[...p,{role:"assistant",text:reply}]);
+      startTyping(talkingTo,reply);
+      if(hardMode){
+        const delay=Math.max(2000,reply.length*25+500);
+        setTimeout(()=>{stopTyping();setChatOpen(false);setGuardsGone({left:true,right:true});},delay);
+      }
     }catch{
       const e={role:"assistant",text:"*coughs* ...the dungeon air is thick. Ask again."};
       if(talkingTo==="left")setMessagesL(p=>[...p,e]);else setMessagesR(p=>[...p,e]);
     }
     setLoading(false);
-  },[input,loading,talkingTo,messagesL,messagesR,liarGuard,safeDoor]);
+  },[input,loading,talkingTo,messagesL,messagesR,liarGuard,safeDoor,hardMode]);
 
   const portraitCanvasRef=useRef(null);
 
@@ -2678,6 +2683,9 @@ export default function GameMobile() {
       <button onClick={()=>setLevel(1)} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #3a3060",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
         <span style={{color:"#70e870"}}>Level 1:</span> The Two Guards<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>A classic logic puzzle in a dark dungeon</span>
       </button>
+      <button onClick={()=>setLevel("1hard")} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #cc4444",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
+        <span style={{color:"#ff6644"}}>Level 1 (Hard):</span> The Two Guards<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>One question only — both guards vanish after</span>
+      </button>
       <button onClick={()=>setLevel(2)} style={{width:280,padding:"14px 20px",fontSize:10,fontFamily:FONT,cursor:"pointer",background:"#2a2040",border:"2px solid #5a4a30",borderRadius:8,color:"#e8d070",marginBottom:12,minHeight:48,textAlign:"left"}}>
         <span style={{color:"#cc3030"}}>Level 2:</span> Murder at the Ashworth Gallery<br/><span style={{fontSize:7,color:"#8a7a6a",marginTop:4,display:"block"}}>Investigate a murder mystery at a museum</span>
       </button>
@@ -2686,5 +2694,6 @@ export default function GameMobile() {
   );
 
   if (level === 1) return <Level1 key={gameKey} onWin={() => setLevel(2)} onRestart={restart} muted={muted} setMuted={setMuted} muteBtn={muteBtn} startMusicForLevel={startMusicForLevel} apiKey={apiKey} model={model} />;
+  if (level === "1hard") return <Level1 key={gameKey} onWin={() => setLevel(2)} onRestart={restart} muted={muted} setMuted={setMuted} muteBtn={muteBtn} startMusicForLevel={startMusicForLevel} apiKey={apiKey} model={model} hardMode />;
   if (level === 2) return <Level2 key={gameKey + "-l2"} onWin={restart} onRestart={restart} muted={muted} setMuted={setMuted} muteBtn={muteBtn} startMusicForLevel={startMusicForLevel} apiKey={apiKey} model={model} />;
 }
