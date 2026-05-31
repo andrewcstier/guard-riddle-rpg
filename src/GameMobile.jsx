@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.49";
+const VERSION = "Beta Version 0.50";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -1856,7 +1856,7 @@ function Level2({ onWin, onRestart, muted, setMuted, muteBtn, startMusicForLevel
             if(npc.key==="cop")greeting=discoveredClues.length>=7?"Detective Andrew. Looks like you have all the clues you need to solve this case! When you're ready, hit the MAKE ACCUSATION button.":"Detective Andrew. I think you need more clues still. Keep investigating and come back when you're ready.";
             if(npc.key==="lead")greeting="Need more details, detective? Ask away.";
             if(npc.key==="soothsayer")greeting="The spirits whisper to me... One of the three suspects speaks only lies. But the mists obscure which one... I also sense that each suspect was in a separate room, each with a separate object, at the time of the murder. I told all of this to the forensics detective... ask him for his notes. Trust your wits, detective.";
-            if(npc.key==="forensics")greeting="I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three. Oh, and I seem to have dropped my notebook somewhere in the museum... if you find it, it could be useful.";
+            if(npc.key==="forensics")greeting="Oh, I seem to have dropped my notebook somewhere in the museum... if you find it, it could be very useful for tracking clues. Anyway — I've cataloged the potential murder weapons. There are three: a rare porcelain vase, an antique painting in a heavy frame, and an abstract stone statue. The murder weapon is definitely one of these three.";
             setMessages(prev=>{
               if(npc.key==="cop"){return{...prev,cop:[{role:"assistant",text:greeting},...prev.cop.slice(1)]};}
               if(prev[npc.key].length>0)return prev;
