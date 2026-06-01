@@ -22,7 +22,7 @@ const FONT = "'Press Start 2P', monospace";
 const TILE = 32;
 const SPEED = 2.5;
 const INTERACT_DIST = TILE * 2;
-const VERSION = "Beta Version 0.59";
+const VERSION = "Beta Version 0.60";
 
 // ═══════════════════════════════════════
 // MUSIC ENGINE — shared across levels
@@ -2633,46 +2633,40 @@ export default function GameMobile() {
         display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         height:"100vh",background:"#1a1428",color:"#e8d070",fontFamily:FONT,padding:20,textAlign:"center"
       }}>
-        <div style={{fontSize:16,marginBottom:30}}>⚔ Deception RPG ⚔</div>
-        <div style={{fontSize:9,marginBottom:20,color:"#a89cc8",maxWidth:400,lineHeight:"1.8"}}>
-          Choose an AI model for NPC dialogue.
+        <div style={{fontSize:16,marginBottom:20}}>⚔ Deception RPG ⚔</div>
+        <div style={{fontSize:9,marginBottom:16,color:"#a89cc8",maxWidth:340,lineHeight:"2"}}>
+          This game uses Claude Opus to power NPC dialogue. You'll need an Anthropic API key to play.
         </div>
-        <div style={{fontSize:8,color:"#a89cc8",marginBottom:6}}>Model</div>
-        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",justifyContent:"center"}}>
-          {MODEL_OPTIONS.map(m=>(
-            <button key={m.id} onClick={()=>{setModel(m.id);localStorage.setItem("anthropic_model",m.id);}} style={{
-              padding:"6px 12px",fontSize:8,fontFamily:FONT,cursor:"pointer",borderRadius:6,
-              background:model===m.id?"#e8d070":"#2a2040",
-              color:model===m.id?"#1a1428":"#a89cc8",
-              border:model===m.id?"2px solid #e8d070":"2px solid #3a3060",
-            }}>{m.label}</button>
-          ))}
+        <div style={{fontSize:7,color:"#8a7aaa",maxWidth:340,lineHeight:"2",marginBottom:16,textAlign:"left"}}>
+          <div style={{marginBottom:8}}>📋 <span style={{color:"#c8b880"}}>How to get a key:</span></div>
+          <div style={{marginBottom:4}}>1. Go to <span style={{color:"#e8d070"}}>console.anthropic.com</span></div>
+          <div style={{marginBottom:4}}>2. Sign up or log in</div>
+          <div style={{marginBottom:4}}>3. Go to <span style={{color:"#e8d070"}}>API Keys</span> in settings</div>
+          <div style={{marginBottom:4}}>4. Click <span style={{color:"#e8d070"}}>Create Key</span></div>
+          <div style={{marginBottom:4}}>5. Copy the key (starts with <span style={{color:"#e8d070"}}>sk-ant-...</span>)</div>
+          <div style={{marginBottom:4}}>6. Add credit to your account under <span style={{color:"#e8d070"}}>Billing</span></div>
         </div>
-        {selectedProvider === "anthropic" && (
-          <>
-            <div style={{fontSize:8,color:"#a89cc8",marginBottom:6}}>Anthropic API Key</div>
-            <input
-              type="password"
-              value={keyInput}
-              onChange={e=>setKeyInput(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&handleStart()}
-              placeholder="sk-ant-..."
-              style={{
-                width:340,padding:"10px 14px",fontSize:11,fontFamily:FONT,
-                background:"#2a2040",border:"2px solid #3a3060",borderRadius:6,
-                color:"#e8d070",outline:"none",marginBottom:12,
-              }}
-            />
-          </>
-        )}
+        <div style={{fontSize:8,color:"#a89cc8",marginBottom:6}}>Paste your API Key below</div>
+        <input
+          type="password"
+          value={keyInput}
+          onChange={e=>setKeyInput(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&handleStart()}
+          placeholder="sk-ant-..."
+          style={{
+            width:340,padding:"10px 14px",fontSize:11,fontFamily:FONT,
+            background:"#2a2040",border:"2px solid #3a3060",borderRadius:6,
+            color:"#e8d070",outline:"none",marginBottom:12,
+          }}
+        />
         {keyError && <div style={{color:"#ff6b6b",fontSize:8,marginBottom:10}}>{keyError}</div>}
         <button onClick={handleStart} style={{
           padding:"14px 24px",fontSize:10,fontFamily:FONT,cursor:"pointer",
           background:"#3a3060",border:"2px solid #e8d070",borderRadius:6,color:"#e8d070",minHeight:48,
         }}>Start Game</button>
-        <div style={{fontSize:7,marginTop:20,color:"#666",maxWidth:350,lineHeight:"1.8"}}>
-          {selectedProvider === "anthropic" ? "Your key is stored in localStorage only. Get one at console.anthropic.com" : ""}
-        <div style={{fontSize:6,marginTop:16,color:"#444"}}>{VERSION}</div>
+        <div style={{fontSize:6,marginTop:16,color:"#555",maxWidth:350,lineHeight:"1.8"}}>
+          Your key is stored locally in your browser only. Powered by Claude Opus 4.
+        <div style={{fontSize:6,marginTop:12,color:"#444"}}>{VERSION}</div>
         </div>
       </div>
     );
